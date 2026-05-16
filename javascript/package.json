@@ -1,0 +1,50 @@
+{
+  "name": "@viridis-security/maxwells-defense",
+  "version": "0.1.0",
+  "description": "Adaptive proof-of-work defense for AI agents. Asymmetric thermodynamic cost: attackers dissipate, defenders verify in O(1). Reference implementation of T-IB-09 (Adversarial Dissipation Theorem) \u2014 Aristotle-verified.",
+  "type": "module",
+  "main": "src/maxwell.mjs",
+  "exports": {
+    ".": "./src/maxwell.mjs",
+    "./express": "./src/maxwell-express.mjs",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "THEOREMS.md"
+  ],
+  "scripts": {
+    "test": "node tests/interop.test.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "proof-of-work",
+    "ai-agents",
+    "rate-limiting",
+    "captcha",
+    "ddos",
+    "agent-security",
+    "thermodynamics",
+    "landauer",
+    "viridis-security",
+    "express-middleware"
+  ],
+  "homepage": "https://github.com/viridis-security/maxwells-defense",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/viridis-security/maxwells-defense.git"
+  },
+  "bugs": {
+    "url": "https://github.com/viridis-security/maxwells-defense/issues"
+  },
+  "license": "Apache-2.0",
+  "author": "Viridis Security <viridissecurity1@gmail.com>",
+  "publishConfig": {
+    "access": "public"
+  }
+}

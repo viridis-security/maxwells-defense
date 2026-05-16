@@ -1,0 +1,21 @@
+version: "3.8"
+
+# Maxwell's Defense end-to-end demo.
+#
+#   docker compose up --build
+#
+# Then in another terminal:
+#   curl -i http://localhost:8000/api/hello       # 401 + challenge
+#   docker compose exec server python -m demo.client  # auto-solves + retries
+#
+# Shows: server issues PoW challenge -> client solves -> server verifies in O(1)
+# -> downstream handler runs.
+
+services:
+  server:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      MAXWELL_DIFFICULTY: "14"
+    command: ["uvicorn", "demo.server:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,0 +1,55 @@
+name: signal-watch
+
+# Posts to Discord when a HUMAN signal lands on the repo —
+# star, fork, issue, or PR. Catches the first human-attribution moment.
+#
+# Required repository secret:
+#   DISCORD_WEBHOOK_URL — incoming-webhook URL for a Viridis Security channel.
+
+on:
+  watch:
+    types: [started]
+  fork:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    if: ${{ env.WEBHOOK != '' }}
+    env:
+      WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+    steps:
+      - name: Compose + send payload
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          REPO: ${{ github.repository }}
+          REF: ${{ github.event.repository.html_url }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          PR_URL:    ${{ github.event.pull_request.html_url }}
+          STAR_COUNT: ${{ github.event.repository.stargazers_count }}
+          FORK_COUNT: ${{ github.event.repository.forks_count }}
+        run: |
+          case "$EVENT_NAME" in
+            watch)               EMOJI="⭐"; TITLE="New star on $REPO";  URL="$REF/stargazers";        FOOTER="$STAR_COUNT stars total" ;;
+            fork)                EMOJI="🍴"; TITLE="New fork of $REPO";  URL="$REF/network/members";   FOOTER="$FORK_COUNT forks total" ;;
+            issues)              EMOJI="🐛"; TITLE="New issue on $REPO"; URL="$ISSUE_URL";             FOOTER="Issue opened" ;;
+            pull_request_target) EMOJI="🚀"; TITLE="New PR on $REPO";    URL="$PR_URL";                FOOTER="PR opened" ;;
+          esac
+          cat > /tmp/payload.json <<JSON
+          {
+            "username": "Viridis Repo Watch",
+            "content": "$EMOJI **$TITLE** by **$ACTOR**",
+            "embeds": [{
+              "title": "$TITLE",
+              "url": "$URL",
+              "description": "by [$ACTOR](https://github.com/$ACTOR)",
+              "footer": { "text": "$FOOTER" }
+            }]
+          }
+          JSON
+          curl -sS -X POST -H "Content-Type: application/json" \
+            -d @/tmp/payload.json "${{ secrets.DISCORD_WEBHOOK_URL }}"

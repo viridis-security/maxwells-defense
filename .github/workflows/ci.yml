@@ -1,0 +1,73 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python:
+    name: python tests (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        working-directory: python
+        run: pip install -e ".[test]"
+      - name: Run tests
+        working-directory: python
+        run: pytest tests/ -v
+
+  javascript:
+    name: javascript interop
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run interop test
+        working-directory: javascript
+        run: node tests/interop.test.mjs
+
+  cross-language:
+    name: js issue -> python verify
+    runs-on: ubuntu-latest
+    needs: [python, javascript]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install python
+        working-directory: python
+        run: pip install -e ".[test]"
+      - name: JS issues + solves
+        working-directory: javascript
+        run: node tests/interop.test.mjs
+      - name: Python verifies the JS artifacts
+        working-directory: python
+        run: |
+          PYTHONPATH=. python3 - <<'PY'
+          import json
+          from maxwells_defense.core import Challenge, Solution, verify_solution
+          with open("/tmp/maxwell-interop.json") as f:
+              data = json.load(f)
+          verify_solution(
+              server_secret=bytes.fromhex(data["secret_hex"]),
+              challenge=Challenge.from_dict(data["challenge"]),
+              solution=Solution.from_dict(data["solution"]),
+              expected_context_id=data["expected_context_id"],
+          )
+          print("[ok] cross-language verified")
+          PY

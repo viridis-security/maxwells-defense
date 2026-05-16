@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "maxwells-defense"
+version = "0.1.0"
+description = "Adaptive proof-of-work defense for AI agents. Asymmetric thermodynamic cost: attackers dissipate, defenders verify in O(1)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Viridis Security", email = "viridissecurity1@gmail.com" },
+]
+keywords = [
+    "proof-of-work",
+    "ai-agents",
+    "rate-limiting",
+    "captcha",
+    "ddos",
+    "agent-security",
+    "thermodynamics",
+    "landauer",
+    "viridis-security",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Internet :: WWW/HTTP",
+]
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=7.0", "pytest-asyncio>=0.21"]
+fastapi = ["starlette>=0.27"]
+
+[project.urls]
+Homepage = "https://github.com/viridis-security/maxwells-defense"
+Issues = "https://github.com/viridis-security/maxwells-defense/issues"
+Source = "https://github.com/viridis-security/maxwells-defense"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["maxwells_defense*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
