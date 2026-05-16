@@ -7,7 +7,7 @@ Reference implementation of **T-IB-09 (Adversarial Dissipation Theorem)** from t
 ## Install
 
 ```bash
-pip install maxwells-defense
+pip install git+https://github.com/viridis-security/maxwells-defense.git
 ```
 
 ## Use

@@ -24,7 +24,7 @@ The pitch in one sentence: **submission inboxes flooded with AI-generated report
 ## In thirty seconds
 
 ```bash
-pip install maxwells-defense
+pip install git+https://github.com/viridis-security/maxwells-defense.git
 ```
 
 ```python
