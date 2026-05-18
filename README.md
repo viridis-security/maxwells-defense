@@ -120,6 +120,9 @@ The hosted-tier integration is documented at [`services/maxwell/README.md`](http
 
 Free tier: 100K challenges/month, no card. Bundled with MCP-02 (Growth tier and above). Enterprise: high-value agent deployments — [viridissecurity1@gmail.com](mailto:viridissecurity1@gmail.com).
 
+
+**Skip the build, use it now:** [Get a free API key](https://mcp.viridis-security.com/signup) → `POST /v1/maxwell/challenge` works against the hosted Argon2id endpoint immediately. Free tier doesn't include Maxwell challenge generation (it requires Growth+ for production asymmetry), but the reference implementation above gives you the same primitive locally for free.
+
 ## Status
 
 `0.1.0` — alpha. The primitive is small (~250 LOC of crypto in core), tested across two languages, with proven wire-format interop. We expect breaking changes in 0.x while we add the federated-difficulty oracle and signed-receipt flow. Pin to a specific version in production.
