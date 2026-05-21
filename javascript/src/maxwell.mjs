@@ -76,14 +76,14 @@ function randomBytes(n) {
  * @param {Object} challenge - { server_nonce (hex), difficulty (int), ...
  *                               other fields are passed through opaquely }
  * @param {Object} [opts]
- * @param {number} [opts.maxIterations] hard cap; default 4 * 2^difficulty
+ * @param {number} [opts.maxIterations] hard cap; default 32 * 2^difficulty
  * @returns {Promise<{solution_nonce: string}>}
  */
 export async function solveChallenge(challenge, opts = {}) {
     const difficulty = challenge.difficulty | 0;
     const serverNonce = hexToBytes(challenge.server_nonce);
     const maxIterations =
-        opts.maxIterations ?? Math.max(1024, 4 * (1 << difficulty));
+        opts.maxIterations ?? Math.max(1024, 32 * 2 ** difficulty);
 
     for (let i = 0; i < maxIterations; i++) {
         const cand = randomBytes(16);

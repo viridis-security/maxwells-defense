@@ -18,11 +18,11 @@ on:
 jobs:
   notify:
     runs-on: ubuntu-latest
-    if: ${{ env.WEBHOOK != '' }}
     env:
       WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
     steps:
       - name: Compose + send payload
+        if: ${{ env.WEBHOOK != '' }}
         env:
           EVENT_NAME: ${{ github.event_name }}
           ACTOR: ${{ github.actor }}

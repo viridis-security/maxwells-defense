@@ -270,7 +270,7 @@ def solve_challenge(challenge: Challenge, *, max_iterations: int | None = None) 
 
     Args:
       max_iterations: stop after this many tries (raises RuntimeError).
-                      Default: 4 * 2**difficulty (high confidence of
+                      Default: 32 * 2**difficulty (high confidence of
                       success at moderate difficulties).
     """
     target_bits = challenge.difficulty
