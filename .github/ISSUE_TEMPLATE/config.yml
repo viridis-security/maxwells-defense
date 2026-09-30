@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/viridis-security/maxwells-defense/security/advisories/new
+    about: Please don't open a public issue for vulnerabilities, leaked credentials or personal data.
