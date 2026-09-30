@@ -1,0 +1,12 @@
+# Viridis secret-scan configuration (open-core kit, 2026-09-28).
+# Keeps every gitleaks default rule and adds key formats the v8.21.2 defaults miss.
+# Repositories that already have a .gitleaks.toml: append only the [[rules]] block below.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "openai-api-key-modern"
+description = "OpenAI API key in project, service-account or admin format"
+regex = '''\bsk-(?:proj|svcacct|admin)-[A-Za-z0-9_-]{40,}'''
+keywords = ["sk-proj-", "sk-svcacct-", "sk-admin-"]
