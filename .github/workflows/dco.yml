@@ -1,0 +1,37 @@
+name: DCO
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  dco:
+    # Branches in this repository are Viridis work. The DCO applies to contributions from forks.
+    if: github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out pull request commits
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Require Signed-off-by on every commit
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for commit in $(git rev-list --no-merges "$BASE_SHA..$HEAD_SHA"); do
+            email="$(git show -s --format='%ae' "$commit")"
+            if ! git show -s --format='%B' "$commit" | grep -i '^Signed-off-by:' | grep -qiF "<$email>"; then
+              echo "::error::Commit $commit has no Signed-off-by line for its author. Fix: git rebase --signoff $BASE_SHA"
+              missing=1
+            fi
+          done
+          exit "$missing"
