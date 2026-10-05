@@ -1,13 +1,13 @@
 # Maxwell's Defense
 
-**Adaptive proof-of-work defense for AI agents.** Attackers dissipate energy; defenders verify in O(1).
+**SHA-256 proof-of-work defense for AI agents.** Constant verification work in difficulty; tunable expected classical search effort.
 
 Apache-2.0. Maintained by [Viridis Security](https://github.com/viridis-security).
 
 [![tests](https://github.com/viridis-security/maxwells-defense/actions/workflows/ci.yml/badge.svg)](https://github.com/viridis-security/maxwells-defense/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![spec](https://img.shields.io/badge/spec-T--IB--09-purple)](THEOREMS.md)
-[![Aristotle](https://img.shields.io/badge/Aristotle-verified-success)](THEOREMS.md#t-ib-09--adversarial-dissipation-theorem)
+[![T-IB-09: conditional model, 1 declared axiom](https://img.shields.io/badge/T--IB--09-conditional_model%20%C2%B7%201_axiom-yellow)](THEOREMS.md#t-ib-09)
 
 ![Maxwell's Defense in action](docs/assets/maxwell-demo.gif)
 
@@ -15,11 +15,11 @@ Apache-2.0. Maintained by [Viridis Security](https://github.com/viridis-security
 
 ## The asymmetry
 
-The defender hashes a candidate solution **once** and counts leading zero bits. The attacker pays an expected **2^d** hashes to find a solution at difficulty `d`. Verification cost is constant; attack cost is exponential.
+The defender hashes a candidate solution **once** and counts leading zero bits. Modeling SHA-256 as a random oracle, a classical solver needs an expected **2^d** hash queries to find a fresh solution at difficulty `d`. Verification cost is constant **in difficulty** for fixed input lengths. The [implementation](python/maxwells_defense/core.py), [regression tests](python/tests/test_invariants.py), and [model assumptions](THEOREMS.md#cryptographic-guarantees) back these claims; tests do not establish a physical energy bound.
 
-That asymmetry is the operational expression of **T-IB-09 (Adversarial Dissipation Theorem)** in the Intelligence Bound corpus — Aristotle-verified 2026-05-10, 4/4 theorems mechanically proved under standard axioms. T-IB-09 establishes the formal claim: an attacker capturing N bits under amplification factor `M` dissipates at least `N · M · k_B · T · ln 2` joules, vs. the unprotected Landauer baseline of `N · k_B · T · ln 2`. The corollary (T-IB-09d, attack-irrationality threshold) defines when attack becomes thermodynamically irrational. The companion result T-IB-02 (Adversarial Landauer Inequality, formalization in progress) frames the same asymmetry against statistical detection. The formal statements live in [THEOREMS.md](THEOREMS.md).
+**T-IB-09 (Adversarial Dissipation Theorem) is a conditional research model.** Its [Lean source](docs/artifacts/t-ib-09/statement.lean) declares one external axiom, `asymmetric_defense_property`. The [saved Aristotle summary](docs/artifacts/t-ib-09/ARISTOTLE_SUMMARY.md) reports four arithmetic corollaries compiled; the first three assume the dissipation bounds as explicit hypotheses rather than deriving them from the protocol. This does not establish a joule-per-request bound or guaranteed profitability. [THEOREMS.md](THEOREMS.md#t-ib-09) separates the assumptions, conditional conclusions, and historical checking report. The PoW design follows [Dwork & Naor (1992)](https://www.microsoft.com/en-us/research/publication/pricing-via-processing-or-combatting-junk-mail/); the search-cost argument uses the [random-oracle model](https://www.cs.ucdavis.edu/~rogaway/papers/ro-abstract.html).
 
-The pitch in one sentence: **submission inboxes flooded with AI-generated reports? Put Maxwell's Defense at the gate; the spam now pays the energy bill, not your triagers.**
+The pitch in one sentence: **require computational effort before a submission reaches your triagers.**
 
 ## In thirty seconds
 
@@ -90,7 +90,7 @@ Each invariant has a named regression test. If any of them stops holding, the li
 | ID         | Invariant                                                                 |
 | ---------- | ------------------------------------------------------------------------- |
 | MX-INV-1   | Verification cost is O(1) in difficulty (one HMAC, one SHA-256, one bit-count). |
-| MX-INV-2   | Solution cost is O(2^d) expected for difficulty `d` leading-zero bits.    |
+| MX-INV-2   | Fresh solution search takes `2^d` expected classical hash queries for difficulty `d`, under the [random-oracle model](THEOREMS.md#cryptographic-guarantees). |
 | MX-INV-3   | Challenges are HMAC-bound to (server_nonce, difficulty, expiry, context). Any tamper is rejected. |
 | MX-INV-3a  | Expired challenges are rejected.                                          |
 | MX-INV-3b  | Context-id mismatch at verify time is rejected.                           |
@@ -104,16 +104,16 @@ Use them. They're great at what they do — keeping human visitors past a single
 - **Agent-aware difficulty.** The oracle takes opaque signals (failed attempts, claimed agent identity, prior interaction history) and returns a difficulty per request. Turnstile is human-vs-bot; Maxwell is *any-actor-vs-attacker-agent*, including legitimate agents that should pass at low difficulty and known-abusive patterns that should pay 2^24 cycles.
 - **Self-hostable, no third-party dependency.** Apache-2.0. Drop the middleware into your own service, deploy your own secret. We make zero outbound calls.
 - **Open protocol surface.** Every challenge ships an `X-Maxwell-Provider` header so attacker tooling, downstream observers, and audit logs see what's gating the request. Optional hosted-signed-receipts mode (`mcp.viridis-security.com`) lets defenders verify provenance and let agents present cross-site proof-of-work receipts.
-- **Theorem-backed.** The asymmetry isn't a heuristic — it's a corpus invariant. See [THEOREMS.md](THEOREMS.md).
+- **Explicit assumptions.** The cryptographic search-cost argument and the conditional thermodynamic research model are distinguished in [THEOREMS.md](THEOREMS.md#t-ib-09), with the [source statement](docs/artifacts/t-ib-09/statement.lean) available for inspection.
 
 ## Reference vs. production
 
-This repository ships the **reference primitive**: SHA-256 hashcash, the simplest construction that exhibits the T-IB-09 asymmetry mechanically. It is sufficient for most deployments and is the canonical wire-format implementation.
+This repository ships the **reference primitive**: SHA-256 hashcash with the [search/verification asymmetry](THEOREMS.md#cryptographic-guarantees). It is the canonical wire-format implementation; it does not establish the thermodynamic assumptions in T-IB-09.
 
 The **hosted Viridis Maxwell** service (`mcp.viridis-security.com/v1/maxwell/*`) extends this with three production-grade features:
 
 - **Argon2id-pow** instead of SHA-256 — memory-hard, ASIC-resistant. Defeats specialized hardware attackers who would otherwise neutralize SHA-256 PoW with off-the-shelf miners.
-- **Amplification levels** (`low`/`medium`/`high`/`extreme`) — adaptive M-factor mapped to per-action thermodynamic-irrationality thresholds (T-IB-09d).
+- **Amplification levels** (`low`/`medium`/`high`/`extreme`) — hosted difficulty settings associated with the conditional `M` parameter in [T-IB-09d](THEOREMS.md#t-ib-09). The arithmetic threshold is not a measured energy or profitability guarantee.
 - **Dissipation-receipt binding** + decoy infrastructure — legitimate principals carry receipts that skip PoW; replay attempts face full difficulty + revocation.
 
 The hosted-tier integration is documented at [`services/maxwell/README.md`](https://github.com/viridis-security/mcp-services-sdk/blob/main/services/maxwell/README.md) in the parent SDK repository.
@@ -125,7 +125,7 @@ Free tier: 100K challenges/month, no card. Bundled with MCP-02 (Growth tier and 
 
 ## Status
 
-`0.1.0` — alpha. The primitive is small (~250 LOC of crypto in core), tested across two languages, with proven wire-format interop. We expect breaking changes in 0.x while we add the federated-difficulty oracle and signed-receipt flow. Pin to a specific version in production.
+`0.1.0` — alpha. The primitive is small (~250 LOC of crypto in core), with [wire-format interop tests](javascript/tests/interop.test.mjs) across two languages. We expect breaking changes in 0.x while we add the federated-difficulty oracle and signed-receipt flow. Pin to a specific version in production.
 
 ## Testing
 

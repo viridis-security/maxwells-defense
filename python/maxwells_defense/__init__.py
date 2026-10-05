@@ -1,15 +1,17 @@
 """Maxwell's Defense — Adaptive proof-of-work defense for AI agents.
 
-Operational implementation of T-IB-09 (Adversarial Dissipation Theorem) from
-the Intelligence Bound corpus (Aristotle-verified 2026-05-10, project
-f6dd4bcd-b9f2-4818-940f-c6f52fd360c0). At amplification factor M = 2^d, an
-attacker capturing N protected bits pays N * M * k_B * T * ln 2 joules; the
-defender pays the Landauer floor.
+SHA-256 reference primitive: constant verification work in difficulty and
+2^d expected classical search queries under a random-oracle model.
+T-IB-09 is a conditional research model with one declared external asymmetry
+axiom and explicit dissipation hypotheses. See THEOREMS.md and the source
+statement at docs/artifacts/t-ib-09/statement.lean in the repository.
+No physical energy bound or economic outcome is established by this library.
 
 This is a defense primitive only — no exploit code, no offensive use.
 
 License: Apache-2.0
-Reference SDK: github.com/viridis-security/mcp-services-sdk/tree/main/services/maxwell/reference
+Reference SDK:
+github.com/viridis-security/mcp-services-sdk/tree/main/services/maxwell/reference
 """
 
 from .core import (
