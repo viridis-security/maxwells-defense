@@ -12,7 +12,7 @@ Maxwell's Defense is small and focused. Contributions land fast if they fit the 
 ## What we don't want
 
 - **Exploit code, offensive tooling, or attack examples.** This library is the defense primitive. Public API is lexically lint-checked to reject names containing `attack`, `exploit`, `bypass`, `payload`, etc. If your contribution needs those words, it belongs in a different repo.
-- **Network calls from the reference implementation.** The client and server reference implementations make zero outbound calls. The hosted tier at `mcp.viridis-security.com` is a separate codebase that consumes this library.
+- **Network calls from the default reference implementation.** The client and server defaults make zero outbound calls. The optional, explicitly configured Redis nonce store connects only to the application's shared state backend; see [the single-use deployment contract](docs/integration.md#single-use--multi-process-state). The hosted tier at `mcp.viridis-security.com` is a separate codebase that consumes this library.
 - **Cryptographic primitive substitutions without discussion.** SHA-256 is chosen for ubiquity and constant-time native implementations everywhere. If you have a reason to swap (BLAKE3, etc.), file an issue first.
 
 ## Workflow
@@ -24,14 +24,15 @@ cd maxwells-defense
 # Python
 cd python
 pip install -e ".[test]"
-pytest tests/ -v        # must show 17/17 green
+pytest tests/ -v        # original 17 tests and replay regressions must pass
 
 # JavaScript
 cd ../javascript
 node tests/interop.test.mjs   # must finish with [ok] on each line
+node tests/replay.test.mjs    # single-use regression suite
 ```
 
-PRs must keep both test suites green. New invariants get new named tests with an `MX-INV-*` reference comment.
+PRs must keep the 17 original invariant tests and all replay regressions green. New invariants get new named tests with an `MX-INV-*` reference comment.
 
 ## Security disclosures
 

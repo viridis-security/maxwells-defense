@@ -23,18 +23,17 @@ import typing as _t
 from .core import (
     Challenge,
     DifficultyOracle,
+    NonceStore,
     Solution,
     StaticDifficultyOracle,
     issue_challenge,
     verify_solution,
 )
 from .errors import (
-    ExpiredChallenge,
-    InsufficientWork,
-    InvalidSolution,
     MaxwellError,
-    SignatureMismatch,
+    ReplayedSolution,
 )
+from .nonce_stores import InMemoryNonceStore
 
 SOLUTION_HEADER = "X-Maxwell-Solution"
 CHALLENGE_HEADER = "X-Maxwell-Challenge"
@@ -65,9 +64,7 @@ def _extract_solution_and_challenge(
     headers: _t.Mapping[str, str],
 ) -> tuple[Challenge, Solution] | None:
     sol_header = headers.get(SOLUTION_HEADER) or headers.get(SOLUTION_HEADER.lower())
-    chal_header = headers.get(CHALLENGE_HEADER) or headers.get(
-        CHALLENGE_HEADER.lower()
-    )
+    chal_header = headers.get(CHALLENGE_HEADER) or headers.get(CHALLENGE_HEADER.lower())
     if not sol_header or not chal_header:
         return None
     try:
@@ -109,6 +106,7 @@ class FastAPIMaxwellMiddleware:
         difficulty_oracle: DifficultyOracle | None = None,
         protect_path_prefix: str = "/",
         ttl_seconds: int = 300,
+        nonce_store: NonceStore | None = None,
     ) -> None:
         if not server_secret:
             raise ValueError("server_secret must be non-empty")
@@ -117,6 +115,11 @@ class FastAPIMaxwellMiddleware:
         self.difficulty_oracle = difficulty_oracle or StaticDifficultyOracle(18)
         self.protect_path_prefix = protect_path_prefix
         self.ttl_seconds = ttl_seconds
+        self.nonce_store = (
+            InMemoryNonceStore(max_ttl_seconds=ttl_seconds)
+            if nonce_store is None
+            else nonce_store
+        )
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -148,9 +151,15 @@ class FastAPIMaxwellMiddleware:
                 challenge=challenge,
                 solution=solution,
                 expected_context_id=context_id,
+                nonce_store=self.nonce_store,
             )
         except MaxwellError as e:
-            await self._send_challenge(send, context_id, error=type(e).__name__)
+            error = (
+                "maxwell_replayed_solution"
+                if isinstance(e, ReplayedSolution)
+                else type(e).__name__
+            )
+            await self._send_challenge(send, context_id, error=error)
             return
 
         await self.app(scope, receive, send)
@@ -203,6 +212,7 @@ class WSGIMaxwellMiddleware:
         difficulty_oracle: DifficultyOracle | None = None,
         protect_path_prefix: str = "/",
         ttl_seconds: int = 300,
+        nonce_store: NonceStore | None = None,
     ) -> None:
         if not server_secret:
             raise ValueError("server_secret must be non-empty")
@@ -211,6 +221,11 @@ class WSGIMaxwellMiddleware:
         self.difficulty_oracle = difficulty_oracle or StaticDifficultyOracle(18)
         self.protect_path_prefix = protect_path_prefix
         self.ttl_seconds = ttl_seconds
+        self.nonce_store = (
+            InMemoryNonceStore(max_ttl_seconds=ttl_seconds)
+            if nonce_store is None
+            else nonce_store
+        )
 
     def __call__(self, environ, start_response):
         path = environ.get("PATH_INFO", "")
@@ -234,11 +249,15 @@ class WSGIMaxwellMiddleware:
                 challenge=challenge,
                 solution=solution,
                 expected_context_id=context_id,
+                nonce_store=self.nonce_store,
             )
         except MaxwellError as e:
-            return self._challenge_response(
-                start_response, context_id, error=type(e).__name__
+            error = (
+                "maxwell_replayed_solution"
+                if isinstance(e, ReplayedSolution)
+                else type(e).__name__
             )
+            return self._challenge_response(start_response, context_id, error=error)
         return self.app(environ, start_response)
 
     def _challenge_response(self, start_response, context_id, *, error=None):
