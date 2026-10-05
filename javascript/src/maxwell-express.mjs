@@ -271,12 +271,20 @@ export function maxwellsDefense(opts) {
         ttlSeconds = 300,
         difficultyOracle, // optional (req) => number
         nonceStore = new InMemoryNonceStore({ maxTtlSeconds: ttlSeconds }),
+        challengeStatusCode = 401,
+        retryAfterSeconds = 1,
     } = opts || {};
     if (!Buffer.isBuffer(serverSecret) || serverSecret.length === 0) {
         throw new Error("maxwellsDefense: serverSecret must be a non-empty Buffer");
     }
     if (!nonceStore || typeof nonceStore.consume !== "function") {
         throw new Error("maxwellsDefense: nonceStore must implement consume");
+    }
+    if (challengeStatusCode !== 401 && challengeStatusCode !== 429) {
+        throw new Error("maxwellsDefense: challengeStatusCode must be 401 or 429");
+    }
+    if (!Number.isInteger(retryAfterSeconds) || retryAfterSeconds < 0) {
+        throw new Error("maxwellsDefense: retryAfterSeconds must be a nonnegative integer");
     }
     return async function (req, res, next) {
         const contextId = (req.headers.host || "default") + req.originalUrl;
@@ -304,6 +312,8 @@ export function maxwellsDefense(opts) {
                         ? difficultyOracle(req)
                         : difficulty,
                     ttlSeconds,
+                    challengeStatusCode,
+                    retryAfterSeconds,
                     error: e.message,
                 });
             }
@@ -314,11 +324,16 @@ export function maxwellsDefense(opts) {
             contextId,
             difficulty: difficultyOracle ? difficultyOracle(req) : difficulty,
             ttlSeconds,
+            challengeStatusCode,
+            retryAfterSeconds,
         });
     };
 }
 
-function sendChallenge(res, { serverSecret, contextId, difficulty, ttlSeconds, error }) {
+function sendChallenge(res, {
+    serverSecret, contextId, difficulty, ttlSeconds, error,
+    challengeStatusCode, retryAfterSeconds,
+}) {
     const challenge = issueChallenge({
         serverSecret,
         contextId,
@@ -326,7 +341,8 @@ function sendChallenge(res, { serverSecret, contextId, difficulty, ttlSeconds, e
         ttlSeconds,
     });
     res.set(PROVIDER_HEADER, PROVIDER_VALUE);
-    res.status(401).json({
+    if (challengeStatusCode === 429) res.set("Retry-After", String(retryAfterSeconds));
+    res.status(challengeStatusCode).json({
         error: error || "maxwell_challenge_required",
         challenge,
         spec: "https://github.com/viridis-security/maxwells-defense",

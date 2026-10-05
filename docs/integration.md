@@ -110,7 +110,28 @@ JS low-level verification with an asynchronous store returns a Promise; **await 
 
 ## 6. Client integration
 
-A protected endpoint returns `401` with a JSON body containing the challenge. The client solves and re-requests with the challenge and solution in headers.
+A protected endpoint returns `401` by default with a JSON body containing the challenge. The client solves and re-requests with the challenge and solution in headers.
+
+### HTTP response mode
+
+FastAPI/WSGI accept `challenge_status_code=429, retry_after_seconds=1`; Express accepts `challengeStatusCode: 429, retryAfterSeconds: 1`. This alternative returns `429 Too Many Requests` with a [delta-seconds `Retry-After`](https://httpwg.org/specs/rfc9110.html#field.retry-after) header. The retry interval must be a nonnegative integer; zero permits an immediate solve/retry. Keep it shorter than the challenge TTL, allowing time for solving. The existing default remains `401` without `Retry-After`; selecting a different default requires Justin's review.
+
+```python
+app.add_middleware(
+    FastAPIMaxwellMiddleware,
+    server_secret=SECRET,
+    challenge_status_code=429,
+    retry_after_seconds=1,
+)
+```
+
+```js
+app.use(maxwellsDefense({
+    serverSecret: SECRET,
+    challengeStatusCode: 429,
+    retryAfterSeconds: 1,
+}));
+```
 
 **JavaScript (browser or Node 18+):**
 
@@ -120,7 +141,7 @@ import { fetchWithMaxwell } from "@viridis-security/maxwells-defense";
 const res = await fetchWithMaxwell("/api/protected", { method: "POST" });
 ```
 
-`fetchWithMaxwell` is a drop-in for `fetch` — it auto-retries with a solved challenge if it sees `X-Maxwell-Provider` on a 401.
+`fetchWithMaxwell` auto-retries once with a solved challenge when a `401` or `429` contains both `X-Maxwell-Provider` and a JSON challenge. It honors delta-seconds `Retry-After` on Maxwell `429` responses, counting solve time toward the delay. Ordinary authentication failures and rate-limit responses pass through unchanged. HTTP-date retry policies are left to application-specific clients.
 
 **Python (httpx):**
 
