@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# Deliberate negative fixture, outside .github/workflows; never execute it.
+name: invalid-job-env-regression
+on: push
+permissions: {}
+jobs:
+  notify:
+    if: ${{ env.WEBHOOK != '' }}
+    runs-on: ubuntu-latest
+    env:
+      WEBHOOK: fixture-only
+    steps:
+      - run: ':'

@@ -7,6 +7,23 @@ on:
     branches: [main]
 
 jobs:
+  workflow-syntax:
+    name: signal-watch expression regression
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install pinned actionlint
+        run: |
+          curl --fail --silent --show-error --location \
+            --output /tmp/actionlint.tar.gz \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          echo '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  /tmp/actionlint.tar.gz' | sha256sum --check
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+      - name: Check current guard and reject invalid historical pattern
+        run: bash scripts/check-signal-watch.sh /tmp/actionlint
+
   python:
     name: python tests (${{ matrix.python-version }})
     runs-on: ubuntu-latest
