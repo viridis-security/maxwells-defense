@@ -13,6 +13,18 @@ const PROVIDER_VALUE = "viridis-security.com";
 const CHALLENGE_HEADER = "x-maxwell-challenge";
 const SOLUTION_HEADER = "x-maxwell-solution";
 
+let shortSecretWarningIssued = false;
+
+function warnIfShortSecret(serverSecret) {
+    if (serverSecret.length < 32 && !shortSecretWarningIssued) {
+        shortSecretWarningIssued = true;
+        process.emitWarning("serverSecret is shorter than 32 bytes; use a high-entropy key of at least 32 bytes in production", {
+            type: "MaxwellSecurityWarning",
+            code: "MAXWELL_SHORT_SECRET",
+        });
+    }
+}
+
 export class ReplayedSolution extends Error {
     constructor() {
         super("maxwell_replayed_solution");
@@ -171,6 +183,7 @@ export function issueChallenge({
     if (!Buffer.isBuffer(serverSecret) || serverSecret.length === 0) {
         throw new Error("serverSecret must be a non-empty Buffer");
     }
+    warnIfShortSecret(serverSecret);
     if (!(difficulty >= 0 && difficulty <= 32)) {
         throw new Error("difficulty must be in [0, 32]");
     }
@@ -277,6 +290,7 @@ export function maxwellsDefense(opts) {
     if (!Buffer.isBuffer(serverSecret) || serverSecret.length === 0) {
         throw new Error("maxwellsDefense: serverSecret must be a non-empty Buffer");
     }
+    warnIfShortSecret(serverSecret);
     if (!nonceStore || typeof nonceStore.consume !== "function") {
         throw new Error("maxwellsDefense: nonceStore must implement consume");
     }

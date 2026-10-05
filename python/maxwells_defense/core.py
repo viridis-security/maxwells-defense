@@ -27,6 +27,7 @@ import hmac
 import os
 import secrets
 import time
+import warnings
 from collections.abc import Callable, Mapping
 from typing import Any, Protocol
 
@@ -131,6 +132,16 @@ class StaticDifficultyOracle:
 # ---------------------------------------------------------------------------
 
 
+def _warn_if_short_secret(server_secret: bytes) -> None:
+    if len(server_secret) < 32:
+        warnings.warn(
+            "server_secret is shorter than 32 bytes; use a high-entropy "
+            "key of at least 32 bytes in production",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
 def _hmac_payload(
     server_nonce: bytes, difficulty: int, expires_at: int, context_id: str
 ) -> bytes:
@@ -193,6 +204,7 @@ def issue_challenge(
         raise ValueError("difficulty must be in [0, 32]")
     if not server_secret:
         raise ValueError("server_secret must be non-empty")
+    _warn_if_short_secret(server_secret)
     if ttl_seconds <= 0:
         raise ValueError("ttl_seconds must be positive")
     if server_nonce_bytes < 8:

@@ -108,3 +108,33 @@ try {
     globalThis.setTimeout = originalTimeout;
     Date.now = originalNow;
 }
+
+const originalEmitWarning = process.emitWarning;
+try {
+    const warnings = [];
+    process.emitWarning = (message, options) => { warnings.push({ message, options }); };
+    for (const serverSecret of [Buffer.alloc(32), Buffer.alloc(64)]) {
+        issueChallenge({ serverSecret, contextId: "ctx", difficulty: 0 });
+        maxwellsDefense({ serverSecret });
+    }
+    assert.deepEqual(warnings, []);
+    const shortSecret = Buffer.from("short-fixture");
+    maxwellsDefense({ serverSecret: shortSecret });
+    issueChallenge({ serverSecret: shortSecret, contextId: "ctx", difficulty: 0 });
+    assert.equal(warnings.length, 1); // Avoid warnings on every short-key request.
+    assert.equal(warnings[0].options.code, "MAXWELL_SHORT_SECRET");
+    assert.equal(warnings[0].message.includes(shortSecret.toString()), false);
+
+    const standalone = await import("../src/maxwell-express.mjs?standalone-short-secret-test");
+    const challenge = standalone.issueChallenge({ serverSecret: shortSecret, contextId: "ctx", difficulty: 0 });
+    standalone.verifySolution({
+        serverSecret: shortSecret, challenge,
+        solution: { solution_nonce: "00" },
+    });
+    assert.equal(warnings.length, 2);
+    assert.throws(() => issueChallenge({ serverSecret: Buffer.alloc(0), contextId: "ctx", difficulty: 0 }));
+    assert.throws(() => maxwellsDefense({ serverSecret: Buffer.alloc(0) }));
+    console.log("[ok] short keys warn without secret disclosure; recommended keys stay quiet");
+} finally {
+    process.emitWarning = originalEmitWarning;
+}

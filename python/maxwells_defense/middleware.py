@@ -26,6 +26,7 @@ from .core import (
     NonceStore,
     Solution,
     StaticDifficultyOracle,
+    _warn_if_short_secret,
     issue_challenge,
     verify_solution,
 )
@@ -119,6 +120,7 @@ class FastAPIMaxwellMiddleware:
     ) -> None:
         if not server_secret:
             raise ValueError("server_secret must be non-empty")
+        _warn_if_short_secret(server_secret)
         _validate_http_options(challenge_status_code, retry_after_seconds)
         self.app = app
         self.server_secret = server_secret
@@ -236,6 +238,7 @@ class WSGIMaxwellMiddleware:
     ) -> None:
         if not server_secret:
             raise ValueError("server_secret must be non-empty")
+        _warn_if_short_secret(server_secret)
         _validate_http_options(challenge_status_code, retry_after_seconds)
         self.app = app
         self.server_secret = server_secret

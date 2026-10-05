@@ -16,6 +16,8 @@ openssl rand -hex 32
 
 **Storage:** treat it like any production HMAC key. Environment variable, AWS Secrets Manager, GCP Secret Manager, HashiCorp Vault, etc. **Never check it into git.**
 
+Nonempty secrets shorter than 32 bytes remain accepted for compatibility, but Python challenge issuance and middleware setup emit `UserWarning`; Node emits `MAXWELL_SHORT_SECRET` once per loaded module. Warnings contain no key material. Empty secrets still raise an error. Length alone does not establish entropy: generate random keys as shown above.
+
 **Rotation:** the middleware accepts exactly one secret. For seamless rotation, accept two secrets during a transition window — try the current first, fall back to the previous on `SignatureMismatch`, then drop the previous after the TTL of the longest-lived challenge expires.
 
 ## 2. Choosing difficulty
