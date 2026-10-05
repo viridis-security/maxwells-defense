@@ -19,7 +19,7 @@ SECRET = b"a" * 32
 
 
 def challenge_response(
-    integration: str, **options: Any
+    integration: str, request_path: str = "/api", **options: Any
 ) -> tuple[int, dict[str, str], dict[str, Any]]:
     def app(*args: Any) -> Any:
         raise AssertionError("a request without a solution must not be forwarded")
@@ -35,7 +35,7 @@ def challenge_response(
             app, server_secret=SECRET,
             difficulty_oracle=StaticDifficultyOracle(0), **options
         )
-        body = b"".join(middleware({"PATH_INFO": "/api"}, start_response))
+        body = b"".join(middleware({"PATH_INFO": request_path}, start_response))
         return captured["status"], captured["headers"], json.loads(body)
 
     async def invoke() -> tuple[int, dict[str, str], dict[str, Any]]:
@@ -51,7 +51,7 @@ def challenge_response(
             app, server_secret=SECRET,
             difficulty_oracle=StaticDifficultyOracle(0), **options
         )
-        await middleware({"type": "http", "path": "/api"}, receive, send)
+        await middleware({"type": "http", "path": request_path}, receive, send)
         headers = {
             key.decode(): value.decode() for key, value in messages[0]["headers"]
         }
@@ -97,3 +97,19 @@ def test_invalid_response_configuration_is_rejected(
 ) -> None:
     with pytest.raises(ValueError):
         challenge_response(integration, **options)
+
+
+@pytest.mark.parametrize("integration", ["asgi", "wsgi"])
+@pytest.mark.parametrize("status_code", [401, 429])
+def test_challenge_header_matches_body_and_is_ascii(
+    integration: str, status_code: int
+) -> None:
+    """INV-4.2: either HTTP mode mirrors the wire challenge in a header."""
+    status, headers, body = challenge_response(
+        integration, request_path="/café/U0001f331", challenge_status_code=status_code
+    )
+    assert status == status_code
+    serialized = headers["x-maxwell-challenge"]
+    assert serialized.isascii()
+    assert json.loads(serialized) == body["challenge"]
+    assert body["challenge"]["context_id"] == "default/café/U0001f331"

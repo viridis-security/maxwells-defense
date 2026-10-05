@@ -196,6 +196,10 @@ class FastAPIMaxwellMiddleware:
         headers = [
             (b"content-type", b"application/json"),
             (PROVIDER_HEADER.lower().encode(), PROVIDER_VALUE.encode()),
+            (
+                CHALLENGE_HEADER.lower().encode(),
+                json.dumps(challenge.to_dict()).encode(),
+            ),
             (b"content-length", str(len(body)).encode()),
         ]
         if self.challenge_status_code == 429:
@@ -297,6 +301,7 @@ class WSGIMaxwellMiddleware:
         headers = [
             ("Content-Type", "application/json"),
             (PROVIDER_HEADER, PROVIDER_VALUE),
+            (CHALLENGE_HEADER, json.dumps(challenge.to_dict())),
             ("Content-Length", str(len(body))),
         ]
         if self.challenge_status_code == 429:

@@ -7,7 +7,7 @@ import { issueChallenge, maxwellsDefense, verifySolution } from "../src/maxwell-
 
 const secret = Buffer.alloc(32, "a");
 
-async function challengeResponse(options = {}) {
+async function challengeResponse(options = {}, path = "/api") {
     const middleware = maxwellsDefense({ serverSecret: secret, difficulty: 0, ...options });
     const res = {
         code: null, body: null, headers: new Map(),
@@ -15,7 +15,7 @@ async function challengeResponse(options = {}) {
         status(code) { this.code = code; return this; },
         json(body) { this.body = body; return this; },
     };
-    await middleware({ originalUrl: "/api", headers: { host: "host" } }, res, () => {
+    await middleware({ originalUrl: path, headers: { host: "host" } }, res, () => {
         assert.fail("a request without a solution must not be forwarded");
     });
     return res;
@@ -36,6 +36,15 @@ for (const options of [
     assert.throws(() => maxwellsDefense({ serverSecret: secret, ...options }));
 }
 console.log("[ok] default 401 and configurable 429 with Retry-After");
+
+for (const challengeStatusCode of [401, 429]) {
+    const res = await challengeResponse({ challengeStatusCode }, "/café/U0001f331");
+    const serialized = res.headers.get("x-maxwell-challenge");
+    assert.match(serialized, /^[\x20-\x7e]+$/);
+    assert.deepEqual(JSON.parse(serialized), res.body.challenge);
+    assert.equal(res.body.challenge.context_id, "host/café/U0001f331");
+}
+console.log("[ok] ASCII challenge headers match JSON bodies in both HTTP modes");
 
 const originalFetch = globalThis.fetch;
 const originalTimeout = globalThis.setTimeout;

@@ -341,6 +341,10 @@ function sendChallenge(res, {
         ttlSeconds,
     });
     res.set(PROVIDER_HEADER, PROVIDER_VALUE);
+    // Header values must remain ASCII even when the route contains Unicode.
+    const challengeHeader = JSON.stringify(challenge).replace(/[\u007f-\uffff]/g,
+        (character) => "\\u" + character.charCodeAt(0).toString(16).padStart(4, "0"));
+    res.set("X-Maxwell-Challenge", challengeHeader);
     if (challengeStatusCode === 429) res.set("Retry-After", String(retryAfterSeconds));
     res.status(challengeStatusCode).json({
         error: error || "maxwell_challenge_required",

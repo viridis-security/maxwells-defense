@@ -116,6 +116,8 @@ A protected endpoint returns `401` by default with a JSON body containing the ch
 
 FastAPI/WSGI accept `challenge_status_code=429, retry_after_seconds=1`; Express accepts `challengeStatusCode: 429, retryAfterSeconds: 1`. This alternative returns `429 Too Many Requests` with a [delta-seconds `Retry-After`](https://httpwg.org/specs/rfc9110.html#field.retry-after) header. The retry interval must be a nonnegative integer; zero permits an immediate solve/retry. Keep it shorter than the challenge TTL, allowing time for solving. The existing default remains `401` without `Retry-After`; selecting a different default requires Justin's review.
 
+Both modes emit `X-Maxwell-Challenge` containing the same JSON challenge as the response body, plus `X-Maxwell-Provider`. Header JSON escapes non-ASCII context characters without changing the parsed wire fields. Applications using CORS must expose these headers if browser clients read them across origins.
+
 ```python
 app.add_middleware(
     FastAPIMaxwellMiddleware,
