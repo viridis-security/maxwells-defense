@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "maxwells-defense"
 version = "0.1.0"
-description = "Adaptive proof-of-work defense for AI agents. Asymmetric thermodynamic cost: attackers dissipate, defenders verify in O(1)."
+description = "SHA-256 proof-of-work defense for AI agents. Constant verification work in difficulty; tunable classical search effort under a random-oracle model."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
