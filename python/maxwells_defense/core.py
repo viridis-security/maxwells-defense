@@ -11,6 +11,7 @@ Design invariants (the formal contract this module commits to — see THEOREMS.m
             solutions, and solves them as a self-test. Nothing else.
   MX-INV-5  Difficulty oracle is pluggable: the caller decides how to map a
             (client_context) -> difficulty. Defaults are static and explicit.
+  MX-INV-6  With a nonce store, each challenge can be accepted only once.
 
 Hashing primitive: SHA-256. We require N leading zero BITS of
 sha256(server_nonce || client_solution_nonce).
@@ -26,8 +27,8 @@ import hmac
 import os
 import secrets
 import time
-from typing import Any, Callable, Mapping, Protocol
-
+from collections.abc import Callable, Mapping
+from typing import Any, Protocol
 
 # ---------------------------------------------------------------------------
 # Types
@@ -66,7 +67,7 @@ class Challenge:
         }
 
     @classmethod
-    def from_dict(cls, d: Mapping[str, Any]) -> "Challenge":
+    def from_dict(cls, d: Mapping[str, Any]) -> Challenge:
         return cls(
             server_nonce=bytes.fromhex(d["server_nonce"]),
             difficulty=int(d["difficulty"]),
@@ -86,7 +87,7 @@ class Solution:
         return {"solution_nonce": self.solution_nonce.hex()}
 
     @classmethod
-    def from_dict(cls, d: Mapping[str, Any]) -> "Solution":
+    def from_dict(cls, d: Mapping[str, Any]) -> Solution:
         return cls(solution_nonce=bytes.fromhex(d["solution_nonce"]))
 
 
@@ -100,6 +101,19 @@ class DifficultyOracle(Protocol):
     def __call__(self, context_id: str, signals: Mapping[str, Any]) -> int: ...
 
 
+class NonceStore(Protocol):
+    """Atomic single-use state shared by all verifiers in a deployment.
+
+    ``consume`` returns True on first use and False on replay. Implementations
+    must retain accepted nonces until expiry and fail closed if state cannot
+    be retained. ``gc`` removes expired entries; single-use expiry is exclusive.
+    """
+
+    def consume(self, nonce: bytes, expires_at: int) -> bool: ...
+
+    def gc(self, now: int) -> None: ...
+
+
 class StaticDifficultyOracle:
     """Returns a constant difficulty regardless of context."""
 
@@ -108,9 +122,7 @@ class StaticDifficultyOracle:
             raise ValueError("difficulty must be in [0, 32]")
         self._difficulty = difficulty
 
-    def __call__(
-        self, context_id: str, signals: Mapping[str, Any]
-    ) -> int:  # noqa: D401
+    def __call__(self, context_id: str, signals: Mapping[str, Any]) -> int:
         return self._difficulty
 
 
@@ -205,23 +217,32 @@ def verify_solution(
     challenge: Challenge,
     solution: Solution,
     expected_context_id: str | None = None,
+    nonce_store: NonceStore | None = None,
     _clock: Callable[[], float] = time.time,
 ) -> None:
     """Verify a solution. Raises on any failure; returns None on success.
 
-    Verification is O(1): one HMAC verify, one SHA-256, one bit-count.
+    Verification is O(1) in difficulty. A nonce store adds an atomic consume
+    after all cryptographic checks succeed. With ``nonce_store=None`` this
+    remains a stateless verifier and repeated solutions are accepted.
+
+    Single-use mode rejects at ``now >= expires_at`` so state can expire at
+    that timestamp. Legacy stateless mode keeps its inclusive expiry boundary.
 
     Raises:
       SignatureMismatch:  challenge HMAC does not verify (forged challenge).
-      ExpiredChallenge:   now > challenge.expires_at.
+      ExpiredChallenge:   expired at the boundary described above.
       InvalidSolution:    expected_context_id given and does not match.
       InsufficientWork:   sha256(server_nonce||solution_nonce) does not
                           have `difficulty` leading zero bits.
+      ReplayedSolution:   a valid challenge was already consumed.
+      NonceStoreUnavailable: single-use state cannot be safely retained.
     """
     from .errors import (
         ExpiredChallenge,
         InsufficientWork,
         InvalidSolution,
+        ReplayedSolution,
         SignatureMismatch,
     )
 
@@ -246,7 +267,9 @@ def verify_solution(
 
     # 3. Check expiry.
     now = int(_clock())
-    if now > challenge.expires_at:
+    if now > challenge.expires_at or (
+        nonce_store is not None and now == challenge.expires_at
+    ):
         raise ExpiredChallenge(
             f"challenge expired at {challenge.expires_at} (now={now})"
         )
@@ -259,6 +282,12 @@ def verify_solution(
             f"solution provided {zb} leading zero bits, "
             f"challenge required {challenge.difficulty}"
         )
+
+    # 5. Consume only valid work. Atomic stores prevent concurrent acceptance.
+    if nonce_store is not None and not nonce_store.consume(
+        challenge.server_nonce, challenge.expires_at
+    ):
+        raise ReplayedSolution("challenge has already been consumed")
 
 
 def solve_challenge(

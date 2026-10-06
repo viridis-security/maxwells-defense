@@ -64,11 +64,13 @@ python/                    Reference server implementation (Apache-2.0)
     middleware.py          FastAPI/Starlette + WSGI shims
     errors.py              Exception hierarchy
   tests/test_invariants.py 17 invariant tests — all green
+  tests/test_replay.py     Single-use, bounded-state and middleware regressions
 
 javascript/                Reference client + Node server (Apache-2.0)
   src/maxwell.mjs          Browser/agent solver; fetchWithMaxwell() wrapper
   src/maxwell-express.mjs  Node Express middleware
   tests/interop.test.mjs   JS↔Python wire-format interop test
+  tests/replay.test.mjs    Single-use and Express regressions
 
 examples/                  Drop-in integrations
   express-middleware/      Minimal Node example
@@ -96,13 +98,14 @@ Each invariant has a named regression test. If any of them stops holding, the li
 | MX-INV-3b  | Context-id mismatch at verify time is rejected.                           |
 | MX-INV-4   | No exploit code path. Public API is lexically free of `attack_*`, `exploit_*`, `bypass_*`, etc. (lint-enforced.) |
 | MX-INV-5   | Difficulty oracle is pluggable. The library never hard-codes a policy.    |
+| MX-INV-6   | Middlewares accept a server nonce once before expiry; low-level verification opts in with a nonce store. See [single-use tests](python/tests/test_replay.py) and [deployment requirements](docs/integration.md#single-use--multi-process-state). |
 
 ## Why not just Cloudflare Turnstile / hCaptcha / mCaptcha?
 
 Use them. They're great at what they do — keeping human visitors past a single-shot human-vs-bot test. Maxwell's Defense addresses a different surface:
 
 - **Agent-aware difficulty.** The oracle takes opaque signals (failed attempts, claimed agent identity, prior interaction history) and returns a difficulty per request. Turnstile is human-vs-bot; Maxwell is *any-actor-vs-attacker-agent*, including legitimate agents that should pass at low difficulty and known-abusive patterns that should pay 2^24 cycles.
-- **Self-hostable, no third-party dependency.** Apache-2.0. Drop the middleware into your own service, deploy your own secret. We make zero outbound calls.
+- **Self-hostable, no required third-party dependency.** Apache-2.0. Drop the middleware into your own service, deploy your own secret. The default implementation makes zero outbound calls; an explicitly configured Redis nonce store connects to your shared backend.
 - **Open protocol surface.** Every challenge ships an `X-Maxwell-Provider` header so attacker tooling, downstream observers, and audit logs see what's gating the request. Optional hosted-signed-receipts mode (`mcp.viridis-security.com`) lets defenders verify provenance and let agents present cross-site proof-of-work receipts.
 - **Explicit assumptions.** The cryptographic search-cost argument and the conditional thermodynamic research model are distinguished in [THEOREMS.md](THEOREMS.md#t-ib-09), with the [source statement](docs/artifacts/t-ib-09/statement.lean) available for inspection.
 
@@ -130,11 +133,12 @@ Free tier: 100K challenges/month, no card. Bundled with MCP-02 (Growth tier and 
 ## Testing
 
 ```bash
-# Python (17 invariant tests)
+# Python (17 original invariant tests plus single-use regressions)
 cd python && pip install -e ".[test]" && pytest tests/ -v
 
 # JS↔Python interop
 cd javascript && node tests/interop.test.mjs
+node tests/replay.test.mjs
 ```
 
 ## Contributing

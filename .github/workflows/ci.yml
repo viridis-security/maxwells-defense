@@ -33,9 +33,11 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "20"
-      - name: Run interop test
+      - name: Run interop and replay tests
         working-directory: javascript
-        run: node tests/interop.test.mjs
+        run: |
+          node tests/interop.test.mjs
+          node tests/replay.test.mjs
 
   cross-language:
     name: js issue -> python verify

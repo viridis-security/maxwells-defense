@@ -22,3 +22,11 @@ class SignatureMismatch(MaxwellError):
 
 class InsufficientWork(MaxwellError):
     """Solution does not meet the required difficulty (leading-zero bits)."""
+
+
+class ReplayedSolution(MaxwellError):
+    """A valid solution's server nonce has already been consumed."""
+
+
+class NonceStoreUnavailable(MaxwellError):
+    """Single-use state cannot be safely retained; verification fails closed."""

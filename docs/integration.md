@@ -4,7 +4,7 @@ Maxwell's Defense ships ~250 LOC of crypto. Wiring it into a production service 
 
 ## 1. Server secret
 
-The HMAC server secret is the only piece of state required to issue and verify challenges. If you ever change it, every outstanding challenge becomes unverifiable (and the verifier raises `SignatureMismatch`) — that's the intended fail-closed behaviour.
+The HMAC server secret signs challenges; the nonce store retains single-use acceptance state. If you ever change the secret, every outstanding challenge becomes unverifiable (and the verifier raises `SignatureMismatch`) — that's the intended fail-closed behaviour.
 
 **Generation:**
 
@@ -63,7 +63,50 @@ To bind a challenge to a specific authenticated user, derive the `context_id` to
 
 ## 5. TTL
 
-Default TTL is 300 s (5 min). Shorter TTL = less replay window, more challenge re-issuance for slow clients. For browsers/agents that solve and immediately reuse, 60 s is fine. For agent harnesses with offline processing, 600–1800 s.
+Default TTL is 300 s (5 min). Shorter TTL reduces retained nonce state and increases challenge re-issuance for slow clients. Every protected request needs a fresh solution. For clients that solve immediately, 60 s is fine. For agent harnesses with offline processing, 600–1800 s.
+
+### Single-use & multi-process state
+
+FastAPI, WSGI, and Express middlewares each create an `InMemoryNonceStore` by default. A valid solution consumes its server nonce before the application runs; reusing it returns a fresh challenge with `error="maxwell_replayed_solution"`. Consumption does not imply the application completed: retries need a fresh challenge, and application-level idempotency remains your responsibility.
+
+The low-level Python `verify_solution(..., nonce_store=None)` and JS `verifySolution` without `nonceStore` retain their stateless behavior. **They permit reuse**; supply a store to enforce single use. In single-use mode expiry is exclusive (`now >= expires_at` rejects); legacy stateless verification retains its inclusive boundary (`now > expires_at` rejects). Neither mode changes the wire format.
+
+In-memory state is safe only when every verifier sharing a signing secret uses the same store in one process. Inject one store if multiple middleware instances use that secret. A restart loses in-memory acceptance state: rotate the secret on restart, or use durable shared state. Multiple workers, hosts, or a load balancer require a shared store. Context binding does not replace replay state.
+
+The in-memory store defaults to 100,000 accepted nonces and a 300-second retention horizon; middleware-created stores size the horizon from `ttl_seconds` / `ttlSeconds`. For explicitly supplied stores, configure the horizon for the longest challenge TTL. Lazy GC removes entries at their expiry on the next access. Capacity exhaustion or an expiry beyond the horizon fails closed; live entries are never evicted. A bounded expiry wheel performs O(1) amortized operations for the configured horizon. Wall-clock rollback fails closed at the store's last observed time.
+
+**Python shared Redis (optional extra):**
+
+```bash
+pip install "maxwells-defense[redis]"
+```
+
+```python
+import os
+from maxwells_defense import RedisNonceStore
+
+store = RedisNonceStore.from_url(os.environ["MAXWELL_REDIS_URL"])
+app.add_middleware(
+    FastAPIMaxwellMiddleware,
+    server_secret=SECRET,
+    nonce_store=store,
+)
+```
+
+**Express shared Redis (optional, application-managed node-redis client):**
+
+```js
+import { RedisNonceStore, maxwellsDefense } from "@viridis-security/maxwells-defense/express";
+
+app.use(maxwellsDefense({
+    serverSecret: SECRET,
+    nonceStore: new RedisNonceStore(redisClient), // already connected by your app
+}));
+```
+
+Redis 6.2+ consumption atomically checks Redis's clock and runs `SET NX EXAT` at the challenge expiry; no separate expiry command can race. Python and JS use the same `maxwell:nonce:` key prefix by default; isolate independent deployments with a custom prefix. Redis automatically expires keys; client `gc` is a no-op. Redis errors reject acceptance. Configure `maxmemory-policy noeviction`, suitable persistence/failover, and a non-decreasing Redis server clock: key eviction, state loss, a restored stale snapshot, or clock rollback after key expiration can reopen replay. If any of these loses acceptance state, rotate the signing secret before accepting old challenges. Regional consensus is outside this reference's guarantee.
+
+JS low-level verification with an asynchronous store returns a Promise; **await it** before forwarding a request. Express does so automatically. No Redis connection or Redis dependency is required by the default reference implementation.
 
 ## 6. Client integration
 
