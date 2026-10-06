@@ -127,6 +127,43 @@ class StaticDifficultyOracle:
         return self._difficulty
 
 
+class FailedAttemptDifficultyOracle:
+    """Example local rule: one difficulty step per configured failure count.
+
+    This is a bounded policy example, not a classifier of legitimate callers.
+    History saturation chooses the configured cap because counts may be absent.
+    """
+
+    def __init__(
+        self,
+        base_difficulty: int = 12,
+        max_difficulty: int = 20,
+        failures_per_step: int = 3,
+    ) -> None:
+        if (
+            type(base_difficulty) is not int
+            or type(max_difficulty) is not int
+            or not 0 <= base_difficulty <= max_difficulty <= 32
+        ):
+            raise ValueError("difficulty bounds must be integers in [0, 32]")
+        if type(failures_per_step) is not int or failures_per_step < 1:
+            raise ValueError("failures_per_step must be a positive integer")
+        self.base_difficulty = base_difficulty
+        self.max_difficulty = max_difficulty
+        self.failures_per_step = failures_per_step
+
+    def __call__(self, context_id: str, signals: Mapping[str, Any]) -> int:
+        failures = signals.get("failed_attempts", 0)
+        if type(failures) is not int or failures < 0:
+            raise ValueError("failed_attempts must be a nonnegative integer")
+        if signals.get("history_saturated", False):
+            return self.max_difficulty
+        return min(
+            self.max_difficulty,
+            self.base_difficulty + failures // self.failures_per_step,
+        )
+
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------

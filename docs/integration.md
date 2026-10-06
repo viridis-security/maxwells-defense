@@ -44,24 +44,75 @@ Tune by deploying at `d = 12` for a week, watching attack volume vs. legit-clien
 - **Before any expensive auth path** (DB lookups, OAuth introspection). Maxwell's whole point is to spend attacker CPU before yours.
 - **After IP-based rate limiting** (if you have one). Rate limiting handles the cheap case; Maxwell handles the case where the attacker is willing to spend per-request.
 
-## 4. Context binding
+## 4. Context binding and local signals
 
-The `context_id` field binds a challenge to a specific (route, agent identity, etc.) combination. The default middleware binds to `host + path`. For tighter binding:
+The default context is unchanged: Python uses `host + path`; Express uses `host + originalUrl` (including the query string). It does not identify a caller. HMAC binds the context string to the challenge, and the nonce store separately enforces single use.
+
+Both Python middlewares accept `context_factory(default_context, signals)`; Express accepts `contextFactory(req, signals)`. Each callback must return a nonempty string. The factory receives a read-only snapshot of `remote_addr`, `method`, and `path`. For example, bind to the transport peer as well as the default route:
 
 ```python
-class MyDifficultyOracle:
-    def __call__(self, context_id: str, signals):
-        # Custom difficulty per route, agent type, etc.
-        return ...
+import hashlib
+import json
+from maxwells_defense import FailedAttemptDifficultyOracle, FailedAttemptHistory
+from maxwells_defense.middleware import FastAPIMaxwellMiddleware
+
+def peer_context(default_context, signals):
+    return hashlib.sha256(json.dumps([
+        default_context, signals["remote_addr"],
+    ]).encode()).hexdigest()
 
 app.add_middleware(
     FastAPIMaxwellMiddleware,
     server_secret=SECRET,
-    difficulty_oracle=MyDifficultyOracle(),
+    context_factory=peer_context,
+    failure_history=FailedAttemptHistory(ttl_seconds=300, max_entries=10_000),
+    difficulty_oracle=FailedAttemptDifficultyOracle(
+        base_difficulty=12, max_difficulty=20, failures_per_step=3,
+    ),
 )
 ```
 
-To bind a challenge to a specific authenticated user, derive the `context_id` to include a hash of their session id. Solutions issued to user A can't then be replayed by user B.
+```js
+import { createHash } from "node:crypto";
+import {
+    FailedAttemptDifficultyOracle, FailedAttemptHistory, maxwellsDefense,
+} from "@viridis-security/maxwells-defense/express";
+
+const oracle = new FailedAttemptDifficultyOracle({
+    baseDifficulty: 12, maxDifficulty: 20, failuresPerStep: 3,
+});
+app.use(maxwellsDefense({
+    serverSecret: SECRET,
+    contextFactory: (req, signals) => createHash("sha256")
+        .update(JSON.stringify([
+            (req.headers.host || "default") + req.originalUrl, signals.remote_addr,
+        ])).digest("hex"),
+    failureHistory: new FailedAttemptHistory({ ttlSeconds: 300, maxEntries: 10_000 }),
+    difficultyOracle: (req, signals) => oracle.difficulty(req, signals),
+}));
+```
+
+`remote_addr` comes only from ASGI `scope.client`, WSGI `REMOTE_ADDR`, or Node `req.socket.remoteAddress`. It is `None`/`null` when unavailable. Maxwell does not use `Forwarded`, `X-Forwarded-For`, or Express `req.ip`. Behind a proxy this is the proxy's address. A custom factory can include an authenticated identity established by trusted application middleware; claimed agent names and arbitrary proxy headers are not authenticated identities. Configure proxy trust at that boundary explicitly. A changing peer address changes a peer-bound context.
+
+### Adaptive difficulty is opt-in
+
+The default oracle remains static at difficulty 18. On every challenge response, Python calls `oracle(context_id, signals)` and Express calls `difficultyOracle(req, signals)`. Existing one-argument Express callbacks still work. The read-only signal mapping contains:
+
+| Signal | Meaning |
+| --- | --- |
+| `remote_addr` | Transport peer address, or `None`/`null`. |
+| `method` | Request method (default `GET` if absent). |
+| `path` | Python path or Express original URL. |
+| `failed_attempts` | Retained failed-submission count for this peer/context. |
+| `history_saturated` | Capacity is full or this count reached its configured cap; unseen peers can have count zero with this flag set. |
+
+Failure history is independent of nonce-consumption state. It counts partial/empty/malformed solution headers, failed cryptographic checks, and replay. A request without solution headers does not allocate an entry. Successful solutions preserve the count. Nonce-backend failures and downstream application exceptions do not count as caller failures. The updated count is available to the oracle that issues the replacement challenge.
+
+Each fixed window begins at the first failure and expires after 300 seconds by default; further failures do not extend it. Lazy expiry uses a monotonic clock. Defaults retain at most 10,000 digested peer/context keys and cap each count at 1,000,000. Live entries are never evicted for new peers. Saturation is visible so a rule can avoid interpreting a missing count as a clean history; the example oracle chooses its configured maximum difficulty. Its rule otherwise adds one bit per `failures_per_step` failures, capped by `max_difficulty`.
+
+History is local to one middleware instance/process unless the application injects the same instance into several middlewares. Python updates are protected by a thread lock; JavaScript updates are synchronous within one process. Shared Redis nonce state does not share these adaptive counters. Unknown peers share history within the same context. This example rule does not classify agents, authenticate callers, or provide federated learning. Test and tune the cap for your users; peer-based counters can aggregate users behind a proxy or NAT.
+
+See [Python signals tests](../python/tests/test_signals.py) and [Express signals tests](../javascript/tests/signals.test.mjs) for binding, spoofed-header, retention, expiry, saturation, and error-path checks.
 
 ## 5. TTL
 
@@ -187,23 +238,9 @@ Every issued challenge ships `X-Maxwell-Provider: viridis-security.com`. Every c
 
 ## 9. Hosted tier
 
-When you want the difficulty oracle to learn from cross-site attack patterns, swap the local oracle for the hosted one:
+`HostedDifficultyOracle` is not implemented or exported by this reference. The proposed `/v1/maxwell/difficulty` client, local fallback behavior, and hosted receipt/parameter contract require the separate hosted implementation audit (WP-6); they are unavailable here. Use a local static oracle or the bounded example above. This work does not promise a release date or free hosted query allowance.
 
-```python
-from maxwells_defense.middleware import FastAPIMaxwellMiddleware
-from maxwells_defense.core import HostedDifficultyOracle  # 0.2.0+
-
-app.add_middleware(
-    FastAPIMaxwellMiddleware,
-    server_secret=SECRET,
-    difficulty_oracle=HostedDifficultyOracle(
-        endpoint="https://mcp.viridis-security.com/v1/maxwell/difficulty",
-        api_key=os.environ["VIRIDIS_API_KEY"],
-    ),
-)
-```
-
-`HostedDifficultyOracle` lands in v0.2.0. Pricing: 100K queries/mo free; `mcp.viridis-security.com`.
+For hosted integration, ask [Viridis Security](mailto:viridissecurity1@gmail.com) to confirm the documented endpoint contract and your account's Maxwell entitlement. Scan-service signup alone does not establish access to Maxwell challenge generation. The reference SHA-256 implementation remains separate from the advertised hosted Argon2id, amplification, and receipt features.
 
 ## 10. Version pinning and typing
 

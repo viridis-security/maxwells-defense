@@ -352,7 +352,10 @@ def test_wsgi_default_rejects_replay_and_issues_fresh_challenge():
         "HTTP_X_MAXWELL_SOLUTION": json.dumps(solve_challenge(issued).to_dict()),
     }
     statuses = []
-    start_response = lambda status, headers: statuses.append(status)
+
+    def start_response(status, headers):
+        statuses.append(status)
+
     assert middleware(environ, start_response) == [b"ok"]
     body = json.loads(b"".join(middleware(environ, start_response)))
     assert statuses == ["200 OK", "401 Unauthorized"]

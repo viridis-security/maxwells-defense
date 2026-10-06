@@ -30,6 +30,8 @@ pytest tests/ -v        # original 17 tests and replay regressions must pass
 cd ../javascript
 node tests/interop.test.mjs   # must finish with [ok] on each line
 node tests/replay.test.mjs    # single-use regression suite
+node tests/http.test.mjs      # HTTP response contract
+node tests/signals.test.mjs   # transport identity and adaptive signals
 ```
 
 PRs must keep the 17 original invariant tests and all replay regressions green. New invariants get new named tests with an `MX-INV-*` reference comment.

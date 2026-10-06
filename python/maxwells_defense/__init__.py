@@ -17,6 +17,7 @@ github.com/viridis-security/mcp-services-sdk/tree/main/services/maxwell/referenc
 from .core import (
     Challenge,
     DifficultyOracle,
+    FailedAttemptDifficultyOracle,
     NonceStore,
     Solution,
     StaticDifficultyOracle,
@@ -32,6 +33,7 @@ from .errors import (
     ReplayedSolution,
     SignatureMismatch,
 )
+from .failure_history import FailedAttemptHistory
 from .nonce_stores import InMemoryNonceStore, RedisNonceStore
 
 __version__ = "0.1.0"
@@ -39,6 +41,8 @@ __all__ = [
     "Challenge",
     "DifficultyOracle",
     "ExpiredChallenge",
+    "FailedAttemptDifficultyOracle",
+    "FailedAttemptHistory",
     "InMemoryNonceStore",
     "InsufficientWork",
     "InvalidSolution",

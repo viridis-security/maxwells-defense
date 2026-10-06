@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import typing as _t
+from types import MappingProxyType
 
 from .core import (
     Challenge,
@@ -32,14 +33,17 @@ from .core import (
 )
 from .errors import (
     MaxwellError,
+    NonceStoreUnavailable,
     ReplayedSolution,
 )
+from .failure_history import FailedAttemptHistory
 from .nonce_stores import InMemoryNonceStore
 
 SOLUTION_HEADER = "X-Maxwell-Solution"
 CHALLENGE_HEADER = "X-Maxwell-Challenge"
 PROVIDER_HEADER = "X-Maxwell-Provider"
 PROVIDER_VALUE = "viridis-security.com"
+ContextFactory = _t.Callable[[str, _t.Mapping[str, _t.Any]], str]
 
 
 def _validate_http_options(status_code: int, retry_after_seconds: int) -> None:
@@ -78,9 +82,53 @@ def _extract_solution_and_challenge(
     try:
         challenge = Challenge.from_dict(json.loads(chal_header))
         solution = Solution.from_dict(json.loads(sol_header))
-    except (ValueError, KeyError, TypeError):
+    except (ValueError, KeyError, TypeError, OverflowError):
         return None
     return challenge, solution
+
+
+def _request_context(
+    default_context: str,
+    remote_addr: str | None,
+    method: str,
+    path: str,
+    context_factory: ContextFactory | None,
+    history: FailedAttemptHistory,
+) -> tuple[str, dict[str, _t.Any]]:
+    signals: dict[str, _t.Any] = {
+        "remote_addr": remote_addr,
+        "method": method,
+        "path": path,
+    }
+    context_id = (
+        context_factory(default_context, MappingProxyType(dict(signals)))
+        if context_factory is not None
+        else default_context
+    )
+    if not isinstance(context_id, str) or not context_id:
+        raise ValueError("context_factory must return a nonempty string")
+    count, saturated = history.snapshot(context_id, remote_addr)
+    signals.update(failed_attempts=count, history_saturated=saturated)
+    return context_id, signals
+
+
+def _record_failure(
+    history: FailedAttemptHistory, context_id: str, signals: dict[str, _t.Any]
+) -> None:
+    count, saturated = history.record_failure(context_id, signals["remote_addr"])
+    signals.update(failed_attempts=count, history_saturated=saturated)
+
+
+def _has_solution_headers(headers: _t.Mapping[str, str]) -> bool:
+    return any(
+        name in headers
+        for name in (
+            CHALLENGE_HEADER,
+            SOLUTION_HEADER,
+            CHALLENGE_HEADER.lower(),
+            SOLUTION_HEADER.lower(),
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -117,6 +165,8 @@ class FastAPIMaxwellMiddleware:
         nonce_store: NonceStore | None = None,
         challenge_status_code: int = 401,
         retry_after_seconds: int = 1,
+        context_factory: ContextFactory | None = None,
+        failure_history: FailedAttemptHistory | None = None,
     ) -> None:
         if not server_secret:
             raise ValueError("server_secret must be non-empty")
@@ -129,6 +179,10 @@ class FastAPIMaxwellMiddleware:
         self.ttl_seconds = ttl_seconds
         self.challenge_status_code = challenge_status_code
         self.retry_after_seconds = retry_after_seconds
+        self.context_factory = context_factory
+        self.failure_history = (
+            FailedAttemptHistory() if failure_history is None else failure_history
+        )
         self.nonce_store = (
             InMemoryNonceStore(max_ttl_seconds=ttl_seconds)
             if nonce_store is None
@@ -150,12 +204,22 @@ class FastAPIMaxwellMiddleware:
             k.decode("latin-1"): v.decode("latin-1") for k, v in raw_headers
         }
 
-        context_id = headers.get("host", "default") + path
+        client = scope.get("client")
+        remote_addr = client[0] if client else None
+        context_id, signals = _request_context(
+            headers.get("host", "default") + path,
+            remote_addr,
+            scope.get("method", "GET"),
+            path,
+            self.context_factory,
+            self.failure_history,
+        )
 
         parsed = _extract_solution_and_challenge(headers)
         if parsed is None:
-            # No solution — issue a challenge.
-            await self._send_challenge(send, context_id)
+            if _has_solution_headers(headers):
+                _record_failure(self.failure_history, context_id, signals)
+            await self._send_challenge(send, context_id, signals)
             return
 
         challenge, solution = parsed
@@ -168,20 +232,27 @@ class FastAPIMaxwellMiddleware:
                 nonce_store=self.nonce_store,
             )
         except MaxwellError as e:
+            if not isinstance(e, NonceStoreUnavailable):
+                _record_failure(self.failure_history, context_id, signals)
             error = (
                 "maxwell_replayed_solution"
                 if isinstance(e, ReplayedSolution)
                 else type(e).__name__
             )
-            await self._send_challenge(send, context_id, error=error)
+            await self._send_challenge(send, context_id, signals, error=error)
             return
 
         await self.app(scope, receive, send)
 
     async def _send_challenge(
-        self, send, context_id: str, *, error: str | None = None
+        self,
+        send,
+        context_id: str,
+        signals: _t.Mapping[str, _t.Any],
+        *,
+        error: str | None = None,
     ) -> None:
-        difficulty = self.difficulty_oracle(context_id, {})
+        difficulty = self.difficulty_oracle(context_id, MappingProxyType(dict(signals)))
         challenge = issue_challenge(
             server_secret=self.server_secret,
             context_id=context_id,
@@ -235,6 +306,8 @@ class WSGIMaxwellMiddleware:
         nonce_store: NonceStore | None = None,
         challenge_status_code: int = 401,
         retry_after_seconds: int = 1,
+        context_factory: ContextFactory | None = None,
+        failure_history: FailedAttemptHistory | None = None,
     ) -> None:
         if not server_secret:
             raise ValueError("server_secret must be non-empty")
@@ -247,6 +320,10 @@ class WSGIMaxwellMiddleware:
         self.ttl_seconds = ttl_seconds
         self.challenge_status_code = challenge_status_code
         self.retry_after_seconds = retry_after_seconds
+        self.context_factory = context_factory
+        self.failure_history = (
+            FailedAttemptHistory() if failure_history is None else failure_history
+        )
         self.nonce_store = (
             InMemoryNonceStore(max_ttl_seconds=ttl_seconds)
             if nonce_store is None
@@ -263,11 +340,20 @@ class WSGIMaxwellMiddleware:
             for k, v in environ.items()
             if k.startswith("HTTP_")
         }
-        context_id = environ.get("HTTP_HOST", "default") + path
+        context_id, signals = _request_context(
+            environ.get("HTTP_HOST", "default") + path,
+            environ.get("REMOTE_ADDR"),
+            environ.get("REQUEST_METHOD", "GET"),
+            path,
+            self.context_factory,
+            self.failure_history,
+        )
 
         parsed = _extract_solution_and_challenge(headers)
         if parsed is None:
-            return self._challenge_response(start_response, context_id)
+            if _has_solution_headers(headers):
+                _record_failure(self.failure_history, context_id, signals)
+            return self._challenge_response(start_response, context_id, signals)
         challenge, solution = parsed
         try:
             verify_solution(
@@ -278,16 +364,27 @@ class WSGIMaxwellMiddleware:
                 nonce_store=self.nonce_store,
             )
         except MaxwellError as e:
+            if not isinstance(e, NonceStoreUnavailable):
+                _record_failure(self.failure_history, context_id, signals)
             error = (
                 "maxwell_replayed_solution"
                 if isinstance(e, ReplayedSolution)
                 else type(e).__name__
             )
-            return self._challenge_response(start_response, context_id, error=error)
+            return self._challenge_response(
+                start_response, context_id, signals, error=error
+            )
         return self.app(environ, start_response)
 
-    def _challenge_response(self, start_response, context_id, *, error=None):
-        difficulty = self.difficulty_oracle(context_id, {})
+    def _challenge_response(
+        self,
+        start_response,
+        context_id,
+        signals: _t.Mapping[str, _t.Any],
+        *,
+        error=None,
+    ):
+        difficulty = self.difficulty_oracle(context_id, MappingProxyType(dict(signals)))
         challenge = issue_challenge(
             server_secret=self.server_secret,
             context_id=context_id,
