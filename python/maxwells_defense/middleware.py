@@ -26,6 +26,7 @@ from .core import (
     NonceStore,
     Solution,
     StaticDifficultyOracle,
+    _warn_if_short_secret,
     issue_challenge,
     verify_solution,
 )
@@ -39,6 +40,13 @@ SOLUTION_HEADER = "X-Maxwell-Solution"
 CHALLENGE_HEADER = "X-Maxwell-Challenge"
 PROVIDER_HEADER = "X-Maxwell-Provider"
 PROVIDER_VALUE = "viridis-security.com"
+
+
+def _validate_http_options(status_code: int, retry_after_seconds: int) -> None:
+    if type(status_code) is not int or status_code not in (401, 429):
+        raise ValueError("challenge_status_code must be 401 or 429")
+    if type(retry_after_seconds) is not int or retry_after_seconds < 0:
+        raise ValueError("retry_after_seconds must be a nonnegative integer")
 
 
 # ---------------------------------------------------------------------------
@@ -107,14 +115,20 @@ class FastAPIMaxwellMiddleware:
         protect_path_prefix: str = "/",
         ttl_seconds: int = 300,
         nonce_store: NonceStore | None = None,
+        challenge_status_code: int = 401,
+        retry_after_seconds: int = 1,
     ) -> None:
         if not server_secret:
             raise ValueError("server_secret must be non-empty")
+        _warn_if_short_secret(server_secret)
+        _validate_http_options(challenge_status_code, retry_after_seconds)
         self.app = app
         self.server_secret = server_secret
         self.difficulty_oracle = difficulty_oracle or StaticDifficultyOracle(18)
         self.protect_path_prefix = protect_path_prefix
         self.ttl_seconds = ttl_seconds
+        self.challenge_status_code = challenge_status_code
+        self.retry_after_seconds = retry_after_seconds
         self.nonce_store = (
             InMemoryNonceStore(max_ttl_seconds=ttl_seconds)
             if nonce_store is None
@@ -184,12 +198,18 @@ class FastAPIMaxwellMiddleware:
         headers = [
             (b"content-type", b"application/json"),
             (PROVIDER_HEADER.lower().encode(), PROVIDER_VALUE.encode()),
+            (
+                CHALLENGE_HEADER.lower().encode(),
+                json.dumps(challenge.to_dict()).encode(),
+            ),
             (b"content-length", str(len(body)).encode()),
         ]
+        if self.challenge_status_code == 429:
+            headers.append((b"retry-after", str(self.retry_after_seconds).encode()))
         await send(
             {
                 "type": "http.response.start",
-                "status": 401,
+                "status": self.challenge_status_code,
                 "headers": headers,
             }
         )
@@ -213,14 +233,20 @@ class WSGIMaxwellMiddleware:
         protect_path_prefix: str = "/",
         ttl_seconds: int = 300,
         nonce_store: NonceStore | None = None,
+        challenge_status_code: int = 401,
+        retry_after_seconds: int = 1,
     ) -> None:
         if not server_secret:
             raise ValueError("server_secret must be non-empty")
+        _warn_if_short_secret(server_secret)
+        _validate_http_options(challenge_status_code, retry_after_seconds)
         self.app = app
         self.server_secret = server_secret
         self.difficulty_oracle = difficulty_oracle or StaticDifficultyOracle(18)
         self.protect_path_prefix = protect_path_prefix
         self.ttl_seconds = ttl_seconds
+        self.challenge_status_code = challenge_status_code
+        self.retry_after_seconds = retry_after_seconds
         self.nonce_store = (
             InMemoryNonceStore(max_ttl_seconds=ttl_seconds)
             if nonce_store is None
@@ -275,12 +301,18 @@ class WSGIMaxwellMiddleware:
                 "spec": "https://github.com/viridis-security/maxwells-defense",
             }
         ).encode("utf-8")
-        start_response(
-            "401 Unauthorized",
-            [
-                ("Content-Type", "application/json"),
-                (PROVIDER_HEADER, PROVIDER_VALUE),
-                ("Content-Length", str(len(body))),
-            ],
+        headers = [
+            ("Content-Type", "application/json"),
+            (PROVIDER_HEADER, PROVIDER_VALUE),
+            (CHALLENGE_HEADER, json.dumps(challenge.to_dict())),
+            ("Content-Length", str(len(body))),
+        ]
+        if self.challenge_status_code == 429:
+            headers.append(("Retry-After", str(self.retry_after_seconds)))
+        status = (
+            "429 Too Many Requests"
+            if self.challenge_status_code == 429
+            else "401 Unauthorized"
         )
+        start_response(status, headers)
         return [body]

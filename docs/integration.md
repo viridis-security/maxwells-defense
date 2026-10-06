@@ -16,6 +16,8 @@ openssl rand -hex 32
 
 **Storage:** treat it like any production HMAC key. Environment variable, AWS Secrets Manager, GCP Secret Manager, HashiCorp Vault, etc. **Never check it into git.**
 
+Nonempty secrets shorter than 32 bytes remain accepted for compatibility, but Python challenge issuance and middleware setup emit `UserWarning`; Node emits `MAXWELL_SHORT_SECRET` once per loaded module. Warnings contain no key material. Empty secrets still raise an error. Length alone does not establish entropy: generate random keys as shown above.
+
 **Rotation:** the middleware accepts exactly one secret. For seamless rotation, accept two secrets during a transition window — try the current first, fall back to the previous on `SignatureMismatch`, then drop the previous after the TTL of the longest-lived challenge expires.
 
 ## 2. Choosing difficulty
@@ -110,7 +112,30 @@ JS low-level verification with an asynchronous store returns a Promise; **await 
 
 ## 6. Client integration
 
-A protected endpoint returns `401` with a JSON body containing the challenge. The client solves and re-requests with the challenge and solution in headers.
+A protected endpoint returns `401` by default with a JSON body containing the challenge. The client solves and re-requests with the challenge and solution in headers.
+
+### HTTP response mode
+
+FastAPI/WSGI accept `challenge_status_code=429, retry_after_seconds=1`; Express accepts `challengeStatusCode: 429, retryAfterSeconds: 1`. This alternative returns `429 Too Many Requests` with a [delta-seconds `Retry-After`](https://httpwg.org/specs/rfc9110.html#field.retry-after) header. The retry interval must be a nonnegative integer; zero permits an immediate solve/retry. Keep it shorter than the challenge TTL, allowing time for solving. The existing default remains `401` without `Retry-After`; selecting a different default requires Justin's review.
+
+Both modes emit `X-Maxwell-Challenge` containing the same JSON challenge as the response body, plus `X-Maxwell-Provider`. Header JSON escapes non-ASCII context characters without changing the parsed wire fields. Applications using CORS must expose these headers if browser clients read them across origins.
+
+```python
+app.add_middleware(
+    FastAPIMaxwellMiddleware,
+    server_secret=SECRET,
+    challenge_status_code=429,
+    retry_after_seconds=1,
+)
+```
+
+```js
+app.use(maxwellsDefense({
+    serverSecret: SECRET,
+    challengeStatusCode: 429,
+    retryAfterSeconds: 1,
+}));
+```
 
 **JavaScript (browser or Node 18+):**
 
@@ -120,7 +145,7 @@ import { fetchWithMaxwell } from "@viridis-security/maxwells-defense";
 const res = await fetchWithMaxwell("/api/protected", { method: "POST" });
 ```
 
-`fetchWithMaxwell` is a drop-in for `fetch` — it auto-retries with a solved challenge if it sees `X-Maxwell-Provider` on a 401.
+`fetchWithMaxwell` auto-retries once with a solved challenge when a `401` or `429` contains both `X-Maxwell-Provider` and a JSON challenge. It honors delta-seconds `Retry-After` on Maxwell `429` responses, counting solve time toward the delay. Ordinary authentication failures and rate-limit responses pass through unchanged. HTTP-date retry policies are left to application-specific clients.
 
 **Python (httpx):**
 
@@ -179,3 +204,18 @@ app.add_middleware(
 ```
 
 `HostedDifficultyOracle` lands in v0.2.0. Pricing: 100K queries/mo free; `mcp.viridis-security.com`.
+
+## 10. Version pinning and typing
+
+The 0.x API may change between releases. Use an exact released version and update deliberately after running your integration tests. These examples use the repository's currently declared `0.1.0` version:
+
+```bash
+pip install "maxwells-defense==0.1.0"
+# When using optional shared Redis state:
+pip install "maxwells-defense[redis]==0.1.0"
+npm install --save-exact @viridis-security/maxwells-defense@0.1.0
+```
+
+Avoid floating Git branches and broad version ranges for production installs. Commit the application's dependency lock file. Upgrade the server and clients with the interop and replay suites before choosing a new pin; this source change does not publish a release.
+
+The Python wheel includes a PEP 561 `py.typed` marker so type checkers discover the package's existing inline annotations. The packaging regression builds a wheel locally and checks that the marker ships inside it.

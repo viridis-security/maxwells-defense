@@ -1,7 +1,7 @@
 name: signal-watch
 
-# Posts to Discord when a HUMAN signal lands on the repo —
-# star, fork, issue, or PR. Catches the first human-attribution moment.
+# Posts to Discord when a repository event lands — star, fork, issue, or PR.
+# An event alone does not establish human attribution or independent use.
 #
 # Required repository secret:
 #   DISCORD_WEBHOOK_URL — incoming-webhook URL for a Viridis Security channel.
@@ -14,6 +14,8 @@ on:
     types: [opened]
   pull_request_target:
     types: [opened]
+
+permissions: {}
 
 jobs:
   notify:
@@ -52,4 +54,4 @@ jobs:
           }
           JSON
           curl -sS -X POST -H "Content-Type: application/json" \
-            -d @/tmp/payload.json "${{ secrets.DISCORD_WEBHOOK_URL }}"
+            -d @/tmp/payload.json "$WEBHOOK"

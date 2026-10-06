@@ -132,6 +132,8 @@ Free tier: 100K challenges/month, no card. Bundled with MCP-02 (Growth tier and 
 
 ## Testing
 
+See the [version-pinning and typing guide](docs/integration.md#10-version-pinning-and-typing) for exact 0.x dependency pins and the Python typing marker.
+
 ```bash
 # Python (17 original invariant tests plus single-use regressions)
 cd python && pip install -e ".[test]" && pytest tests/ -v
@@ -139,6 +141,7 @@ cd python && pip install -e ".[test]" && pytest tests/ -v
 # JS↔Python interop
 cd javascript && node tests/interop.test.mjs
 node tests/replay.test.mjs
+node tests/http.test.mjs
 ```
 
 ## Contributing

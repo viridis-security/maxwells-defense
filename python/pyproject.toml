@@ -38,7 +38,7 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-test = ["pytest>=7.0", "pytest-asyncio>=0.21"]
+test = ["pytest>=7.0", "pytest-asyncio>=0.21", "setuptools>=64", "wheel"]
 fastapi = ["starlette>=0.27"]
 redis = ["redis>=4.5"]
 
@@ -50,6 +50,9 @@ Source = "https://github.com/viridis-security/maxwells-defense"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["maxwells_defense*"]
+
+[tool.setuptools.package-data]
+maxwells_defense = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

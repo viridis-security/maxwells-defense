@@ -11,7 +11,7 @@
 //
 //     import { solveChallenge, fetchWithMaxwell } from "./maxwell.mjs";
 //
-//     // Wrap fetch() — automatically solves if a 401 returns a challenge.
+//     // Wrap fetch() — solves a Maxwell challenge returned with 401 or 429.
 //     const res = await fetchWithMaxwell("/api/protected", { method: "GET" });
 //
 // Usage in an AI agent harness (raw API):
@@ -98,8 +98,9 @@ export async function solveChallenge(challenge, opts = {}) {
 }
 
 /**
- * Drop-in fetch wrapper. If the server returns 401 with a Maxwell
- * challenge, solves it and retries once.
+ * Drop-in fetch wrapper. If the server returns 401 or 429 with a Maxwell
+ * challenge, solves it and retries once. Honors delta-seconds Retry-After
+ * on 429; time spent solving counts toward the delay.
  *
  * @param {string|Request} input
  * @param {RequestInit} [init]
@@ -107,7 +108,8 @@ export async function solveChallenge(challenge, opts = {}) {
  */
 export async function fetchWithMaxwell(input, init = {}) {
     const res = await fetch(input, init);
-    if (res.status !== 401) return res;
+    const receivedAt = Date.now();
+    if (res.status !== 401 && res.status !== 429) return res;
     if (!res.headers.get(PROVIDER_HEADER)) return res;
 
     let body;
@@ -118,7 +120,15 @@ export async function fetchWithMaxwell(input, init = {}) {
     }
     if (!body?.challenge) return res;
 
+    const retryAfter = res.status === 429 ? res.headers.get("retry-after") : null;
+    if (retryAfter !== null && !/^\d+$/.test(retryAfter)) return res;
+    const delay = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) * 1000 : 0;
+    // Leave unusually long retry policies to the caller instead of overflowing
+    // setTimeout's signed 32-bit millisecond range.
+    if (delay > 2 ** 31 - 1) return res;
     const solution = await solveChallenge(body.challenge);
+    const remaining = receivedAt + delay - Date.now();
+    if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
     const headers = new Headers(init.headers || {});
     // HTTP Headers require byte strings, while contexts may contain Unicode.
     const challengeHeader = JSON.stringify(body.challenge).replace(/[\u007f-\uffff]/g,

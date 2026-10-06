@@ -13,6 +13,18 @@ const PROVIDER_VALUE = "viridis-security.com";
 const CHALLENGE_HEADER = "x-maxwell-challenge";
 const SOLUTION_HEADER = "x-maxwell-solution";
 
+let shortSecretWarningIssued = false;
+
+function warnIfShortSecret(serverSecret) {
+    if (serverSecret.length < 32 && !shortSecretWarningIssued) {
+        shortSecretWarningIssued = true;
+        process.emitWarning("serverSecret is shorter than 32 bytes; use a high-entropy key of at least 32 bytes in production", {
+            type: "MaxwellSecurityWarning",
+            code: "MAXWELL_SHORT_SECRET",
+        });
+    }
+}
+
 export class ReplayedSolution extends Error {
     constructor() {
         super("maxwell_replayed_solution");
@@ -171,6 +183,7 @@ export function issueChallenge({
     if (!Buffer.isBuffer(serverSecret) || serverSecret.length === 0) {
         throw new Error("serverSecret must be a non-empty Buffer");
     }
+    warnIfShortSecret(serverSecret);
     if (!(difficulty >= 0 && difficulty <= 32)) {
         throw new Error("difficulty must be in [0, 32]");
     }
@@ -271,12 +284,21 @@ export function maxwellsDefense(opts) {
         ttlSeconds = 300,
         difficultyOracle, // optional (req) => number
         nonceStore = new InMemoryNonceStore({ maxTtlSeconds: ttlSeconds }),
+        challengeStatusCode = 401,
+        retryAfterSeconds = 1,
     } = opts || {};
     if (!Buffer.isBuffer(serverSecret) || serverSecret.length === 0) {
         throw new Error("maxwellsDefense: serverSecret must be a non-empty Buffer");
     }
+    warnIfShortSecret(serverSecret);
     if (!nonceStore || typeof nonceStore.consume !== "function") {
         throw new Error("maxwellsDefense: nonceStore must implement consume");
+    }
+    if (challengeStatusCode !== 401 && challengeStatusCode !== 429) {
+        throw new Error("maxwellsDefense: challengeStatusCode must be 401 or 429");
+    }
+    if (!Number.isInteger(retryAfterSeconds) || retryAfterSeconds < 0) {
+        throw new Error("maxwellsDefense: retryAfterSeconds must be a nonnegative integer");
     }
     const handleRequest = async function (req, res, next) {
         const contextId = (req.headers.host || "default") + req.originalUrl;
@@ -285,6 +307,8 @@ export function maxwellsDefense(opts) {
             contextId,
             difficulty: difficultyOracle ? difficultyOracle(req) : difficulty,
             ttlSeconds,
+            challengeStatusCode,
+            retryAfterSeconds,
             error,
         });
 
@@ -334,7 +358,10 @@ export function maxwellsDefense(opts) {
     };
 }
 
-function sendChallenge(res, { serverSecret, contextId, difficulty, ttlSeconds, error }) {
+function sendChallenge(res, {
+    serverSecret, contextId, difficulty, ttlSeconds, error,
+    challengeStatusCode, retryAfterSeconds,
+}) {
     const challenge = issueChallenge({
         serverSecret,
         contextId,
@@ -342,7 +369,12 @@ function sendChallenge(res, { serverSecret, contextId, difficulty, ttlSeconds, e
         ttlSeconds,
     });
     res.set(PROVIDER_HEADER, PROVIDER_VALUE);
-    res.status(401).json({
+    // Header values must remain ASCII even when the route contains Unicode.
+    const challengeHeader = JSON.stringify(challenge).replace(/[\u007f-\uffff]/g,
+        (character) => "\\u" + character.charCodeAt(0).toString(16).padStart(4, "0"));
+    res.set("X-Maxwell-Challenge", challengeHeader);
+    if (challengeStatusCode === 429) res.set("Retry-After", String(retryAfterSeconds));
+    res.status(challengeStatusCode).json({
         error: error || "maxwell_challenge_required",
         challenge,
         spec: "https://github.com/viridis-security/maxwells-defense",
