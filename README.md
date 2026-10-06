@@ -56,6 +56,8 @@ const res = await fetchWithMaxwell("/api/hello");
 console.log(await res.json()); // { ok: true }
 ```
 
+For an existing agent or HTTP MCP endpoint, start with the [maintainer quickstart](docs/maintainer-quickstart.md): choose the protected operation, wrap its unavoidable HTTP entry point, connect clients, and configure shared state and upstream limits. Run `node examples/local-admission/client.mjs` from this checkout for an actual local challenge, computation, first acceptance and replay refusal with timing output; it uses a harmless handler and closes its loopback server afterward.
+
 ## What's in the box
 
 ```

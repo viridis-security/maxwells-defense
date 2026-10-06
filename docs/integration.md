@@ -1,5 +1,7 @@
 # Production Integration Guide
 
+Start with the [maintainer quickstart](maintainer-quickstart.md) for a runnable local HTTP admission demo and the path from an agent entry point to a protected integration. This guide covers the deployment details.
+
 Maxwell's Defense ships ~250 LOC of crypto. Wiring it into a production service is mostly about three operational decisions: secret management, difficulty tuning, and where in your request stack the middleware sits. This guide is the checklist.
 
 ## 1. Server secret
