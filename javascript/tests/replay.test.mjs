@@ -11,7 +11,7 @@ import {
     maxwellsDefense,
     verifySolution,
 } from "../src/maxwell-express.mjs";
-import { solveChallenge } from "../src/maxwell.mjs";
+import { fetchWithMaxwell, solveChallenge } from "../src/maxwell.mjs";
 
 const secret = Buffer.alloc(32, "a");
 let now = 1000;
@@ -176,3 +176,84 @@ now = Math.floor(Date.now() / 1000);
 await exerciseMiddleware(new RedisNonceStore(new FakeRedis()));
 assert.throws(() => maxwellsDefense({ serverSecret: secret, nonceStore: null }));
 console.log("[ok] Express defaults and asynchronous shared store reject replay before forwarding");
+
+const oracleFailure = new Error("oracle failed");
+let forwardedError;
+let errorCalls = 0;
+const failedOracle = maxwellsDefense({
+    serverSecret: secret,
+    difficultyOracle() { throw oracleFailure; },
+});
+await failedOracle({ originalUrl: "/api", headers: { host: "host" } }, {}, (error) => {
+    errorCalls += 1;
+    forwardedError = error;
+});
+assert.equal(errorCalls, 1);
+assert.equal(forwardedError, oracleFailure);
+
+for (const asynchronous of [false, true]) {
+    const storeFailure = new TypeError("custom store failed");
+    const failedStore = maxwellsDefense({
+        serverSecret: secret,
+        difficulty: 0,
+        nonceStore: {
+            consume() {
+                if (asynchronous) return Promise.reject(storeFailure);
+                throw storeFailure;
+            },
+        },
+    });
+    const challenge = issueChallenge({ serverSecret: secret, contextId: "host/api", difficulty: 0 });
+    errorCalls = 0;
+    await failedStore({
+        originalUrl: "/api",
+        headers: {
+            host: "host",
+            "x-maxwell-challenge": JSON.stringify(challenge),
+            "x-maxwell-solution": JSON.stringify(await solveChallenge(challenge)),
+        },
+    }, {}, (error) => {
+        errorCalls += 1;
+        forwardedError = error;
+    });
+    assert.equal(errorCalls, 1);
+    assert.equal(forwardedError, storeFailure);
+}
+console.log("[ok] Express forwards oracle and synchronous/asynchronous store failures to next(error)");
+
+const originalFetch = globalThis.fetch;
+try {
+    const challenge = issueChallenge({
+        serverSecret: secret, contextId: "host/東京/🛡️", difficulty: 0,
+    });
+    let calls = 0;
+    globalThis.fetch = async (input, init = {}) => {
+        calls += 1;
+        assert.equal(input, "https://fixture.invalid/api");
+        if (calls === 1) {
+            return new Response(JSON.stringify({ challenge }), {
+                status: 401,
+                headers: { "X-Maxwell-Provider": "viridis-security.com" },
+            });
+        }
+        const header = init.headers.get("X-Maxwell-Challenge");
+        assert.match(header, /^[\x20-\x7e]+$/);
+        const echoed = JSON.parse(header);
+        assert.deepEqual(echoed, challenge);
+        verifySolution({
+            serverSecret: secret,
+            challenge: echoed,
+            solution: JSON.parse(init.headers.get("X-Maxwell-Solution")),
+            expectedContextId: challenge.context_id,
+            nonceStore: new InMemoryNonceStore(),
+        });
+        return new Response("ok", { status: 200 });
+    };
+    const response = await fetchWithMaxwell("https://fixture.invalid/api");
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), "ok");
+    assert.equal(calls, 2);
+} finally {
+    globalThis.fetch = originalFetch;
+}
+console.log("[ok] fetch wrapper completes a Unicode-context challenge roundtrip with ASCII headers");
