@@ -3,8 +3,8 @@
 Design invariants (the formal contract this module commits to — see THEOREMS.md):
 
   MX-INV-1  Verification cost is O(1) in difficulty: the defender hashes once.
-  MX-INV-2  Solution cost is O(2^d) expected for difficulty d (leading zero bits):
-            the attacker pays exponential energy.
+  MX-INV-2  Fresh solution search takes 2^d expected classical hash queries
+            for difficulty d under a random-oracle model; not an energy bound.
   MX-INV-3  Challenges are bound to a (client_context, expiry) tuple via HMAC;
             replay across contexts or after expiry is detectably forged.
   MX-INV-4  No exploit code path. This module issues challenges, verifies

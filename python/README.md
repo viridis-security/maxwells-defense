@@ -1,8 +1,8 @@
 # maxwells-defense (Python)
 
-Adaptive proof-of-work defense for AI agents. Asymmetric thermodynamic cost: attackers dissipate energy in `O(2^d)` expected work; defenders verify in `O(1)`.
+SHA-256 proof-of-work defense for AI agents. Verification work is constant in difficulty for fixed input lengths. Fresh solutions take `2^d` expected classical hash queries under a random-oracle model. See the [implementation](maxwells_defense/core.py), [regression tests](tests/test_invariants.py), and [model assumptions](../THEOREMS.md#cryptographic-guarantees).
 
-Reference implementation of **T-IB-09 (Adversarial Dissipation Theorem)** from the Intelligence Bound corpus — Aristotle-verified 2026-05-10.
+**T-IB-09 is a conditional research model**, with one external axiom and explicit dissipation hypotheses in its [source statement](../docs/artifacts/t-ib-09/statement.lean). The [saved checking report](../docs/artifacts/t-ib-09/ARISTOTLE_SUMMARY.md) concerns arithmetic corollaries; it does not establish a physical energy bound. See [THEOREMS.md](../THEOREMS.md#t-ib-09).
 
 ## Install
 
