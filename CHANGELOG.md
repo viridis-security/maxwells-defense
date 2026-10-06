@@ -114,10 +114,6 @@ This preparation does not establish a `v0.2.0` tag or publication to PyPI or npm
   regression and removed unnecessary token permissions.
   [Workflow check](scripts/check-signal-watch.sh).
 
-### Removed
-
-- Removed temporary execution notes from the package root.
-
 ## [0.1.0]
 
 ### Added
