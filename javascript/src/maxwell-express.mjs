@@ -300,16 +300,39 @@ export function maxwellsDefense(opts) {
     if (!Number.isInteger(retryAfterSeconds) || retryAfterSeconds < 0) {
         throw new Error("maxwellsDefense: retryAfterSeconds must be a nonnegative integer");
     }
-    return async function (req, res, next) {
+    const handleRequest = async function (req, res, next) {
         const contextId = (req.headers.host || "default") + req.originalUrl;
+        const reject = (error) => sendChallenge(res, {
+            serverSecret,
+            contextId,
+            difficulty: difficultyOracle ? difficultyOracle(req) : difficulty,
+            ttlSeconds,
+            challengeStatusCode,
+            retryAfterSeconds,
+            error,
+        });
 
         const chalHeader = req.headers[CHALLENGE_HEADER];
         const solHeader = req.headers[SOLUTION_HEADER];
 
         if (chalHeader && solHeader) {
+            let challenge, solution;
             try {
-                const challenge = JSON.parse(chalHeader);
-                const solution = JSON.parse(solHeader);
+                challenge = JSON.parse(chalHeader);
+                solution = JSON.parse(solHeader);
+                if (!challenge || !solution ||
+                    typeof challenge.server_nonce !== "string" ||
+                    typeof challenge.hmac_sig !== "string" ||
+                    typeof challenge.context_id !== "string" ||
+                    !Number.isInteger(challenge.difficulty) ||
+                    !Number.isInteger(challenge.expires_at) ||
+                    typeof solution.solution_nonce !== "string") {
+                    throw new Error("InvalidSolution: malformed headers");
+                }
+            } catch (error) {
+                return reject("InvalidSolution: malformed headers");
+            }
+            try {
                 await verifySolution({
                     serverSecret,
                     challenge,
@@ -317,30 +340,21 @@ export function maxwellsDefense(opts) {
                     expectedContextId: contextId,
                     nonceStore,
                 });
-                return next();
             } catch (e) {
-                return sendChallenge(res, {
-                    serverSecret,
-                    contextId,
-                    difficulty: difficultyOracle
-                        ? difficultyOracle(req)
-                        : difficulty,
-                    ttlSeconds,
-                    challengeStatusCode,
-                    retryAfterSeconds,
-                    error: e.message,
-                });
+                if (e instanceof NonceStoreUnavailable || e instanceof ReplayedSolution || [
+                    "SignatureMismatch", "InvalidSolution: context mismatch",
+                    "ExpiredChallenge", "InsufficientWork",
+                ].includes(e.message)) return reject(e.message);
+                throw e;
             }
+            return next();
         }
 
-        return sendChallenge(res, {
-            serverSecret,
-            contextId,
-            difficulty: difficultyOracle ? difficultyOracle(req) : difficulty,
-            ttlSeconds,
-            challengeStatusCode,
-            retryAfterSeconds,
-        });
+        return reject();
+    };
+    return function (req, res, next) {
+        // Express 4 does not forward rejected middleware Promises itself.
+        return handleRequest(req, res, next).catch(next);
     };
 }
 
