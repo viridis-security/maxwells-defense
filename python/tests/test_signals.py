@@ -9,7 +9,6 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 import pytest
-
 from maxwells_defense import (
     Challenge,
     FailedAttemptDifficultyOracle,
@@ -360,7 +359,9 @@ def test_example_policy_receives_real_middleware_signals(integration: str) -> No
 def test_example_policy_caps_unknown_peer_at_capacity(integration: str) -> None:
     harness = Harness(integration, failure_history=FailedAttemptHistory(max_entries=1))
     harness.middleware.difficulty_oracle = FailedAttemptDifficultyOracle(
-        base_difficulty=0, max_difficulty=2, failures_per_step=1,
+        base_difficulty=0,
+        max_difficulty=2,
+        failures_per_step=1,
     )
     harness.request(headers={"x-maxwell-solution": "{}"})
     assert harness.request(peer="192.0.2.2")["challenge"]["difficulty"] == 2
