@@ -62,15 +62,18 @@ python/                    Reference server implementation (Apache-2.0)
   maxwells_defense/
     core.py                Challenge / Solution / issue / verify / solve
     middleware.py          FastAPI/Starlette + WSGI shims
+    failure_history.py     Bounded per-peer/context local failure counters
     errors.py              Exception hierarchy
   tests/test_invariants.py 17 invariant tests — all green
   tests/test_replay.py     Single-use, bounded-state and middleware regressions
+  tests/test_signals.py    Transport identity and adaptive-signal regressions
 
 javascript/                Reference client + Node server (Apache-2.0)
   src/maxwell.mjs          Browser/agent solver; fetchWithMaxwell() wrapper
   src/maxwell-express.mjs  Node Express middleware
   tests/interop.test.mjs   JS↔Python wire-format interop test
   tests/replay.test.mjs    Single-use and Express regressions
+  tests/signals.test.mjs   Transport identity and adaptive-signal regressions
 
 examples/                  Drop-in integrations
   express-middleware/      Minimal Node example
@@ -104,27 +107,24 @@ Each invariant has a named regression test. If any of them stops holding, the li
 
 Use them. They're great at what they do — keeping human visitors past a single-shot human-vs-bot test. Maxwell's Defense addresses a different surface:
 
-- **Agent-aware difficulty.** The oracle takes opaque signals (failed attempts, claimed agent identity, prior interaction history) and returns a difficulty per request. Turnstile is human-vs-bot; Maxwell is *any-actor-vs-attacker-agent*, including legitimate agents that should pass at low difficulty and known-abusive patterns that should pay 2^24 cycles.
+- **Pluggable difficulty with local signals.** Middleware supplies the transport peer address, request method/path, failed-solution count, and history saturation flag. Difficulty stays static by default. Opt in to the capped `FailedAttemptDifficultyOracle` example or provide your own rule; this reference does not classify agents or learn from cross-site traffic. Optional context factories can bind challenges to the peer or an identity your application has established. See the [context and adaptive-signal guide](docs/integration.md#4-context-binding-and-local-signals) and [regression tests](python/tests/test_signals.py).
 - **Self-hostable, no required third-party dependency.** Apache-2.0. Drop the middleware into your own service, deploy your own secret. The default implementation makes zero outbound calls; an explicitly configured Redis nonce store connects to your shared backend.
-- **Open protocol surface.** Every challenge ships an `X-Maxwell-Provider` header so attacker tooling, downstream observers, and audit logs see what's gating the request. Optional hosted-signed-receipts mode (`mcp.viridis-security.com`) lets defenders verify provenance and let agents present cross-site proof-of-work receipts.
+- **Open protocol surface.** Every challenge ships `X-Maxwell-Provider` and `X-Maxwell-Challenge` headers so clients and logs can identify the gate. Hosted receipt integration is separate from this reference and requires its own implementation and service-access checks.
 - **Theorem-backed.** The asymmetry isn't a heuristic — it's a corpus invariant. See [THEOREMS.md](THEOREMS.md).
 
 ## Reference vs. production
 
 This repository ships the **reference primitive**: SHA-256 hashcash, the simplest construction that exhibits the T-IB-09 asymmetry mechanically. It is sufficient for most deployments and is the canonical wire-format implementation.
 
-The **hosted Viridis Maxwell** service (`mcp.viridis-security.com/v1/maxwell/*`) extends this with three production-grade features:
+The **hosted Viridis Maxwell** service (`mcp.viridis-security.com/v1/maxwell/*`) is a separate implementation. Its advertised design includes:
 
-- **Argon2id-pow** instead of SHA-256 — memory-hard, ASIC-resistant. Defeats specialized hardware attackers who would otherwise neutralize SHA-256 PoW with off-the-shelf miners.
-- **Amplification levels** (`low`/`medium`/`high`/`extreme`) — adaptive M-factor mapped to per-action thermodynamic-irrationality thresholds (T-IB-09d).
-- **Dissipation-receipt binding** + decoy infrastructure — legitimate principals carry receipts that skip PoW; replay attempts face full difficulty + revocation.
+- **Argon2id-PoW** instead of reference SHA-256.
+- **Amplification levels** (`low`/`medium`/`high`/`extreme`).
+- **Dissipation receipts** and decoy infrastructure.
 
-The hosted-tier integration is documented at [`services/maxwell/README.md`](https://github.com/viridis-security/mcp-services-sdk/blob/main/services/maxwell/README.md) in the parent SDK repository.
+The hosted implementation, parameters, receipt lifecycle, and account entitlements have not been confirmed by this reference's tests. Its [parent SDK documentation](https://github.com/viridis-security/mcp-services-sdk/blob/main/services/maxwell/README.md) requires access to that repository. The reference is not feature-equivalent to hosted Maxwell.
 
-Free tier: 100K challenges/month, no card. Bundled with MCP-02 (Growth tier and above). Enterprise: high-value agent deployments — [viridissecurity1@gmail.com](mailto:viridissecurity1@gmail.com).
-
-
-**Skip the build, use it now:** [Get a free API key](https://mcp.viridis-security.com/signup) → `POST /v1/maxwell/challenge` works against the hosted Argon2id endpoint immediately. Free tier doesn't include Maxwell challenge generation (it requires Growth+ for production asymmetry), but the reference implementation above gives you the same primitive locally for free.
+**Use Maxwell locally:** install the Apache-2.0 reference and follow [the example above](#in-thirty-seconds). For hosted access, ask [Viridis Security](mailto:viridissecurity1@gmail.com) to confirm Maxwell endpoint access and plan limits before integrating. A free scan-service account does not establish Maxwell challenge-generation access.
 
 ## Status
 
@@ -142,6 +142,7 @@ cd python && pip install -e ".[test]" && pytest tests/ -v
 cd javascript && node tests/interop.test.mjs
 node tests/replay.test.mjs
 node tests/http.test.mjs
+node tests/signals.test.mjs
 ```
 
 ## Contributing
