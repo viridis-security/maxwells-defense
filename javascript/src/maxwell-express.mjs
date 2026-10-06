@@ -383,7 +383,7 @@ export function maxwellsDefense(opts) {
     if (!Number.isInteger(retryAfterSeconds) || retryAfterSeconds < 0) {
         throw new Error("maxwellsDefense: retryAfterSeconds must be a nonnegative integer");
     }
-    return async function (req, res, next) {
+    const handleRequest = async function (req, res, next) {
         const signals = {
             remote_addr: req.socket?.remoteAddress ?? null,
             method: req.method || "GET",
@@ -449,6 +449,10 @@ export function maxwellsDefense(opts) {
 
         const partial = CHALLENGE_HEADER in req.headers || SOLUTION_HEADER in req.headers;
         return reject(undefined, partial);
+    };
+    return function (req, res, next) {
+        // Express 4 does not forward rejected middleware Promises itself.
+        return handleRequest(req, res, next).catch(next);
     };
 }
 

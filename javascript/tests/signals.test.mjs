@@ -38,7 +38,8 @@ function harness(options = {}) {
                 set() { return this; }, status() { return this; },
                 json(body) { this.body = body; return this; },
             };
-            await middleware(req, res, () => {
+            await middleware(req, res, (error) => {
+                if (error) throw error;
                 forwarded += 1;
                 if (appError) throw appError;
                 res.body = { ok: true };
@@ -166,6 +167,23 @@ console.log("[ok] fixed TTL, bounded capacity/count, conservative saturation, ro
 for (const context of ["", null, 12]) {
     await assert.rejects(harness({ contextFactory: () => context }).request(), /nonempty string/);
 }
+const factoryFailure = new Error("context factory failed");
+const factoryHistory = new FailedAttemptHistory();
+const failedFactory = maxwellsDefense({
+    serverSecret: secret,
+    failureHistory: factoryHistory,
+    contextFactory() { throw factoryFailure; },
+});
+let forwardedFactoryErrors = 0;
+const handledFactoryRequest = failedFactory({ originalUrl: "/api", headers: {} }, {}, (error) => {
+    forwardedFactoryErrors += 1;
+    assert.equal(error, factoryFailure);
+});
+assert.equal(handledFactoryRequest instanceof Promise, true);
+await handledFactoryRequest;
+assert.equal(forwardedFactoryErrors, 1);
+assert.equal(factoryHistory.entries.size, 0);
+console.log("[ok] context factory errors reach next(error) exactly once without changing caller history");
 const example = new FailedAttemptDifficultyOracle({ baseDifficulty: 2, maxDifficulty: 4, failuresPerStep: 2 });
 assert.deepEqual(Array.from({ length: 7 }, (_, count) => example.difficulty({}, { failed_attempts: count })), [2, 2, 3, 3, 4, 4, 4]);
 assert.equal(example.difficulty({}, { failed_attempts: 0, history_saturated: true }), 4);
