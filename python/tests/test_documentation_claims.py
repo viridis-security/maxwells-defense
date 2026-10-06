@@ -83,6 +83,27 @@ def test_axiom_and_explicit_hypotheses_match_the_public_explanation() -> None:
     assert "not a Lean-mechanized result" in theorems
 
 
+def _assert_local_link_resolves(document: Path, target: str) -> None:
+    link = urlparse(target)
+    if link.scheme or link.netloc:
+        return
+    destination = (
+        (document.parent / unquote(link.path)).resolve()
+        if link.path
+        else document.resolve()
+    )
+    assert destination.is_file(), (document, target)
+    if link.fragment:
+        contents = destination.read_text()
+        explicit_anchors = re.findall(r'<a id="([^"]+)">', contents)
+        headings = re.findall(r"^#+ (.+)$", contents, re.MULTILINE)
+        heading_anchors = [
+            re.sub(r"[^\w -]", "", heading.lower()).replace(" ", "-")
+            for heading in headings
+        ]
+        assert link.fragment in explicit_anchors + heading_anchors, (document, target)
+
+
 def test_local_claim_and_artifact_links_resolve() -> None:
     """INV-2.4: public claim links point to real files and section anchors."""
     documents = (
@@ -94,20 +115,13 @@ def test_local_claim_and_artifact_links_resolve() -> None:
     for relative_path in documents:
         document = ROOT / relative_path
         for target in re.findall(r"\]\(([^)]+)\)", document.read_text()):
-            link = urlparse(target)
-            if link.scheme or link.netloc:
-                continue
-            destination = (document.parent / unquote(link.path)).resolve()
-            assert destination.is_file(), (relative_path, target)
-            if link.fragment:
-                contents = destination.read_text()
-                explicit_anchors = re.findall(r'<a id="([^"]+)">', contents)
-                headings = re.findall(r"^#+ (.+)$", contents, re.MULTILINE)
-                heading_anchors = [
-                    re.sub(r"[^\w -]", "", heading.lower()).replace(" ", "-")
-                    for heading in headings
-                ]
-                assert link.fragment in explicit_anchors + heading_anchors, (
-                    relative_path,
-                    target,
-                )
+            _assert_local_link_resolves(document, target)
+
+
+def test_fragment_only_link_checks_the_document_anchor(tmp_path: Path) -> None:
+    """INV-2.4: same-document links resolve to that file and still check anchors."""
+    document = tmp_path / "README.md"
+    document.write_text("# Local section\n\n[Jump](#local-section)\n")
+    _assert_local_link_resolves(document, "#local-section")
+    with pytest.raises(AssertionError):
+        _assert_local_link_resolves(document, "#missing-section")
