@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse
 
 import pytest
+
 from maxwells_defense import (
     ExpiredChallenge,
     InMemoryNonceStore,

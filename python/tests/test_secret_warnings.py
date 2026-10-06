@@ -7,6 +7,7 @@ import warnings
 from typing import Any
 
 import pytest
+
 from maxwells_defense import issue_challenge, solve_challenge, verify_solution
 from maxwells_defense.middleware import (
     FastAPIMaxwellMiddleware,

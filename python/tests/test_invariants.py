@@ -21,7 +21,6 @@ import pytest
 
 from maxwells_defense.core import (
     Challenge,
-    DifficultyOracle,
     Solution,
     StaticDifficultyOracle,
     _leading_zero_bits,
@@ -35,7 +34,6 @@ from maxwells_defense.errors import (
     InvalidSolution,
     SignatureMismatch,
 )
-
 
 SECRET = b"a" * 32
 OTHER_SECRET = b"b" * 32

@@ -1,6 +1,6 @@
 {
   "name": "@viridis-security/maxwells-defense",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "SHA-256 proof-of-work defense for AI agents. Constant verification work in difficulty; tunable classical search effort under a random-oracle model.",
   "type": "module",
   "main": "src/maxwell.mjs",

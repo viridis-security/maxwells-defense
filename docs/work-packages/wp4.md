@@ -2,7 +2,7 @@
 
 # WP-4 review notes
 
-Status: prepared for a draft PR on `codex/wp-4-http-packaging`, based on WP-1. The 401-versus-429 default remains Justin's unresolved choice. This implementation preserves 401; elapsed time is not treated as approval to change it. No merge, deployment, payment, billing mutation, outreach, submission, or release publication occurred.
+Status: merged in PR #11; the combined reference changes in PRs #9–#12 are on main. The 401-versus-429 default remains Justin's unresolved choice. This implementation preserves 401; elapsed time is not treated as approval to change it. This historical work-package acceptance records no deployment, payment, billing mutation, outreach, submission, or release publication.
 
 ## Invariants and implementation
 
@@ -60,10 +60,10 @@ bash -n scripts/check-signal-watch.sh: exit 0.
 git diff --check: exit 0.
 ```
 
-The successful type check used the existing WP-1 test environment, which has the optional Redis typing dependency; no runtime dependency was added for it. Workflow checks performed static validation only. CI execution itself is not claimed: this PR is stacked on WP-1, while the inherited CI event filter currently targets PRs into main.
+The successful type check used the existing WP-1 test environment, which has the optional Redis typing dependency; no runtime dependency was added for it. Workflow checks performed static validation only. The original acceptance above was recorded while this PR was stacked on WP-1. Full main-targeted CI passed after retargeting and integration; [PR #11](https://github.com/viridis-security/maxwells-defense/pull/11) retains those checks.
 
 ## Out of scope and assumptions
 
-Public releases, changing the default HTTP status, and production configuration require their separate review/authority. The retry interval is a client hint; applications should keep it below the challenge TTL and allow solve time. Existing single-use state assumptions from WP-1 apply. Hosted entitlements, oracle behavior, thermodynamic copy correction in WP-2, and later business WPs are separate reviews. This branch does not rerun Aristotle or claim fresh formal verification.
+Public releases, changing the default HTTP status, and production configuration require their separate review/authority. The retry interval is a client hint; applications should keep it below the challenge TTL and allow solve time. Existing single-use state assumptions from WP-1 apply. The merged [WP-2 notes](wp2/CODEX_NOTES.md) explain the bounded proof claims; the merged [WP-3 notes](wp3.md) cover transport context and adaptive signals. Hosted implementation/entitlements remain unconfirmed by these reference tests. This branch does not rerun Aristotle or claim fresh formal verification.
 
 Attribution: Codex (OpenAI), implementing Justin's 2026-10-05 handoff. The workflow audit used official actionlint artifacts; no Aristotle work was performed.
