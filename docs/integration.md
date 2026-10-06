@@ -204,3 +204,18 @@ app.add_middleware(
 ```
 
 `HostedDifficultyOracle` lands in v0.2.0. Pricing: 100K queries/mo free; `mcp.viridis-security.com`.
+
+## 10. Version pinning and typing
+
+The 0.x API may change between releases. Use an exact released version and update deliberately after running your integration tests. These examples use the repository's currently declared `0.1.0` version:
+
+```bash
+pip install "maxwells-defense==0.1.0"
+# When using optional shared Redis state:
+pip install "maxwells-defense[redis]==0.1.0"
+npm install --save-exact @viridis-security/maxwells-defense@0.1.0
+```
+
+Avoid floating Git branches and broad version ranges for production installs. Commit the application's dependency lock file. Upgrade the server and clients with the interop and replay suites before choosing a new pin; this source change does not publish a release.
+
+The Python wheel includes a PEP 561 `py.typed` marker so type checkers discover the package's existing inline annotations. The packaging regression builds a wheel locally and checks that the marker ships inside it.

@@ -7,8 +7,10 @@ Reference implementation of **T-IB-09 (Adversarial Dissipation Theorem)** from t
 ## Install
 
 ```bash
-pip install git+https://github.com/viridis-security/maxwells-defense.git
+pip install "maxwells-defense==0.1.0"
 ```
+
+Use an exact release pin during 0.x; update it deliberately after integration testing. The Python wheel carries a `py.typed` marker for the package's inline annotations. See [version pinning and typing](../docs/integration.md#10-version-pinning-and-typing).
 
 ## Use
 
