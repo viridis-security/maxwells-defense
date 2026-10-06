@@ -8,7 +8,6 @@ import json
 from typing import Any
 
 import pytest
-
 from maxwells_defense import StaticDifficultyOracle
 from maxwells_defense.middleware import (
     FastAPIMaxwellMiddleware,
@@ -32,8 +31,10 @@ def challenge_response(
             captured["headers"] = {key.lower(): value for key, value in headers}
 
         middleware = WSGIMaxwellMiddleware(
-            app, server_secret=SECRET,
-            difficulty_oracle=StaticDifficultyOracle(0), **options
+            app,
+            server_secret=SECRET,
+            difficulty_oracle=StaticDifficultyOracle(0),
+            **options,
         )
         body = b"".join(middleware({"PATH_INFO": request_path}, start_response))
         return captured["status"], captured["headers"], json.loads(body)
@@ -48,8 +49,10 @@ def challenge_response(
             return {"type": "http.request", "body": b""}
 
         middleware = FastAPIMaxwellMiddleware(
-            app, server_secret=SECRET,
-            difficulty_oracle=StaticDifficultyOracle(0), **options
+            app,
+            server_secret=SECRET,
+            difficulty_oracle=StaticDifficultyOracle(0),
+            **options,
         )
         await middleware({"type": "http", "path": request_path}, receive, send)
         headers = {
@@ -84,14 +87,17 @@ def test_rate_limit_status_has_configured_retry_after(
 
 
 @pytest.mark.parametrize("integration", ["asgi", "wsgi"])
-@pytest.mark.parametrize("options", [
-    {"challenge_status_code": 403},
-    {"challenge_status_code": 401.0},
-    {"challenge_status_code": True},
-    {"retry_after_seconds": -1},
-    {"retry_after_seconds": 1.5},
-    {"retry_after_seconds": False},
-])
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"challenge_status_code": 403},
+        {"challenge_status_code": 401.0},
+        {"challenge_status_code": True},
+        {"retry_after_seconds": -1},
+        {"retry_after_seconds": 1.5},
+        {"retry_after_seconds": False},
+    ],
+)
 def test_invalid_response_configuration_is_rejected(
     integration: str, options: dict[str, Any]
 ) -> None:

@@ -1,7 +1,7 @@
 {
   "name": "@viridis-security/maxwells-defense",
   "version": "0.1.0",
-  "description": "Adaptive proof-of-work defense for AI agents. Asymmetric thermodynamic cost: attackers dissipate, defenders verify in O(1). Reference implementation of T-IB-09 (Adversarial Dissipation Theorem) \u2014 Aristotle-verified.",
+  "description": "SHA-256 proof-of-work defense for AI agents. Constant verification work in difficulty; tunable classical search effort under a random-oracle model.",
   "type": "module",
   "main": "src/maxwell.mjs",
   "exports": {

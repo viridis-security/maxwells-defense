@@ -14,7 +14,8 @@ def test_built_wheel_contains_typing_marker(tmp_path: Path) -> None:
     project = Path(__file__).resolve().parents[1]
     source = tmp_path / "source"
     shutil.copytree(
-        project, source,
+        project,
+        source,
         ignore=shutil.ignore_patterns(
             "build", "dist", "*.egg-info", "__pycache__", ".pytest_cache"
         ),
@@ -23,9 +24,12 @@ def test_built_wheel_contains_typing_marker(tmp_path: Path) -> None:
     output.mkdir()
     result = subprocess.run(
         [
-            sys.executable, "-c",
-            "import sys; from setuptools.build_meta import build_wheel; "
-            "build_wheel(sys.argv[1])",
+            sys.executable,
+            "-c",
+            (
+                "import sys; from setuptools.build_meta import build_wheel; "
+                "build_wheel(sys.argv[1])"
+            ),
             str(output),
         ],
         cwd=source,
