@@ -46,7 +46,7 @@ def hello():
     return {"ok": True}
 ```
 
-That's it. Any client hitting `/api/*` now receives a 401 with a Maxwell challenge until they spend a few hundred milliseconds of CPU to solve it. JS reference client:
+That's it. Any client hitting `/api/*` now receives a 401 with a Maxwell challenge until they submit a valid solution. JS reference client:
 
 ```js
 import { fetchWithMaxwell } from "@viridis-security/maxwells-defense";

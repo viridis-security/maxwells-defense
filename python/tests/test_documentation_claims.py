@@ -32,6 +32,7 @@ def test_public_surfaces_do_not_restore_unqualified_proof_claims() -> None:
         "the defender pays the landauer floor",
         "attacker capturing n protected bits pays",
         "attacker pays exponential energy",
+        "a few hundred milliseconds of cpu",
     )
     for relative_path in PUBLIC_SURFACES:
         source = (ROOT / relative_path).read_text().lower()
