@@ -24,8 +24,10 @@ def test_built_wheel_contains_typing_marker(tmp_path: Path) -> None:
     result = subprocess.run(
         [
             sys.executable, "-c",
-            "import sys; from setuptools.build_meta import build_wheel; "
-            "build_wheel(sys.argv[1])",
+            (
+                "import sys; from setuptools.build_meta import build_wheel; "
+                "build_wheel(sys.argv[1])"
+            ),
             str(output),
         ],
         cwd=source,
