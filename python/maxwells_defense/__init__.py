@@ -14,32 +14,41 @@ Reference SDK: github.com/viridis-security/mcp-services-sdk/tree/main/services/m
 
 from .core import (
     Challenge,
-    Solution,
     DifficultyOracle,
+    NonceStore,
+    Solution,
     StaticDifficultyOracle,
     issue_challenge,
-    verify_solution,
     solve_challenge,
+    verify_solution,
 )
 from .errors import (
-    InvalidSolution,
     ExpiredChallenge,
-    SignatureMismatch,
     InsufficientWork,
+    InvalidSolution,
+    NonceStoreUnavailable,
+    ReplayedSolution,
+    SignatureMismatch,
 )
+from .nonce_stores import InMemoryNonceStore, RedisNonceStore
 
 __version__ = "0.1.0"
 __all__ = [
     "Challenge",
-    "Solution",
     "DifficultyOracle",
-    "StaticDifficultyOracle",
-    "issue_challenge",
-    "verify_solution",
-    "solve_challenge",
-    "InvalidSolution",
     "ExpiredChallenge",
-    "SignatureMismatch",
+    "InMemoryNonceStore",
     "InsufficientWork",
+    "InvalidSolution",
+    "NonceStore",
+    "NonceStoreUnavailable",
+    "RedisNonceStore",
+    "ReplayedSolution",
+    "SignatureMismatch",
+    "Solution",
+    "StaticDifficultyOracle",
     "__version__",
+    "issue_challenge",
+    "solve_challenge",
+    "verify_solution",
 ]

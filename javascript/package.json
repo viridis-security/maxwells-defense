@@ -17,7 +17,7 @@
     "THEOREMS.md"
   ],
   "scripts": {
-    "test": "node tests/interop.test.mjs"
+    "test": "node tests/interop.test.mjs && node tests/replay.test.mjs"
   },
   "engines": {
     "node": ">=18"

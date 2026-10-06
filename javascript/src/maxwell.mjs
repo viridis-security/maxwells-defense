@@ -120,7 +120,10 @@ export async function fetchWithMaxwell(input, init = {}) {
 
     const solution = await solveChallenge(body.challenge);
     const headers = new Headers(init.headers || {});
-    headers.set(CHALLENGE_HEADER, JSON.stringify(body.challenge));
+    // HTTP Headers require byte strings, while contexts may contain Unicode.
+    const challengeHeader = JSON.stringify(body.challenge).replace(/[\u007f-\uffff]/g,
+        (character) => "\\u" + character.charCodeAt(0).toString(16).padStart(4, "0"));
+    headers.set(CHALLENGE_HEADER, challengeHeader);
     headers.set(SOLUTION_HEADER, JSON.stringify(solution));
     return fetch(input, { ...init, headers });
 }
