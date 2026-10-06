@@ -8,6 +8,7 @@ import json
 from typing import Any
 
 import pytest
+
 from maxwells_defense import StaticDifficultyOracle
 from maxwells_defense.middleware import (
     FastAPIMaxwellMiddleware,

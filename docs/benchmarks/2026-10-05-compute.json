@@ -1,0 +1,269 @@
+{
+  "_license": "SPDX-License-Identifier: Apache-2.0",
+  "description": "Compute-time measurements; no physical resource or economic measurement.",
+  "source_commit": "1b1c347ba03427b1bdd7751ecfe7ce4981f2e653",
+  "source_sha256": {
+    "python/maxwells_defense/__init__.py": "fad80fc4db702b552d807160c4cec016e48bff8c2431147fcd4a4fe48e80963d",
+    "python/maxwells_defense/core.py": "48fec8899ffc385e1a7ff3dfebd0cb2f0dfa89e12262ac647ab98fa18f47d886",
+    "python/maxwells_defense/errors.py": "37ac96a2df7566712f13b81fe854361ea163f502546758069358419edbcdea90",
+    "python/maxwells_defense/failure_history.py": "5fd8c1243fb70b7ff923658e4a5e7fe93a79c2fc4e2be0dd01c6ebf95b7d561c",
+    "python/maxwells_defense/middleware.py": "6e3577f15857b76038d868df18a17b492b48b2703ea7bab44326273c47d0cbac",
+    "python/maxwells_defense/nonce_stores.py": "23cda4db77daf466442da3748cb70d54ddba39393a62bf5bc0f702d5241f2995"
+  },
+  "runner_sha256": "253a7606590f40f2619932c99d05f5db0b9aff9e62314743c26dc88b1dfa403d",
+  "measured_at_utc": "2026-10-06T01:12:41.108072+00:00",
+  "runtime": {
+    "python": "3.14.3 (main, Feb  3 2026, 15:32:20) [Clang 17.0.0 (clang-1700.6.3.2)]",
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "machine": "arm64"
+  },
+  "method": "sequential unsigned big-endian 16-byte counters starting at zero",
+  "sampling_note": "Independent random server nonces; no exact empirical 2^d or monotonicity assertion",
+  "difficulty": 18,
+  "samples": 40,
+  "mean_solve_process_cpu_seconds": 0.104991225,
+  "mean_solve_wall_seconds": 0.10501667498319875,
+  "mean_verify_wall_seconds": 2.1649955306202175e-05,
+  "raw_samples": [
+    {
+      "attempts": 360586,
+      "solve_process_cpu_seconds": 0.12893899999999991,
+      "solve_wall_seconds": 0.12894712493289262,
+      "verify_wall_seconds": 1.037493348121643e-05
+    },
+    {
+      "attempts": 210020,
+      "solve_process_cpu_seconds": 0.07512999999999992,
+      "solve_wall_seconds": 0.07512912491802126,
+      "verify_wall_seconds": 2.3250002413988113e-05
+    },
+    {
+      "attempts": 147850,
+      "solve_process_cpu_seconds": 0.053489999999999815,
+      "solve_wall_seconds": 0.05349791597109288,
+      "verify_wall_seconds": 1.9583036191761494e-05
+    },
+    {
+      "attempts": 390796,
+      "solve_process_cpu_seconds": 0.14255700000000004,
+      "solve_wall_seconds": 0.14260395802557468,
+      "verify_wall_seconds": 3.15000070258975e-05
+    },
+    {
+      "attempts": 166467,
+      "solve_process_cpu_seconds": 0.060145000000000115,
+      "solve_wall_seconds": 0.06015379203017801,
+      "verify_wall_seconds": 1.3209064491093159e-05
+    },
+    {
+      "attempts": 452886,
+      "solve_process_cpu_seconds": 0.16149999999999998,
+      "solve_wall_seconds": 0.1615084579680115,
+      "verify_wall_seconds": 9.333016350865364e-06
+    },
+    {
+      "attempts": 244954,
+      "solve_process_cpu_seconds": 0.08836,
+      "solve_wall_seconds": 0.08836787508334965,
+      "verify_wall_seconds": 3.800005652010441e-05
+    },
+    {
+      "attempts": 631524,
+      "solve_process_cpu_seconds": 0.23108699999999982,
+      "solve_wall_seconds": 0.23117979103699327,
+      "verify_wall_seconds": 3.0791969038546085e-05
+    },
+    {
+      "attempts": 310543,
+      "solve_process_cpu_seconds": 0.11512300000000009,
+      "solve_wall_seconds": 0.11556916707195342,
+      "verify_wall_seconds": 3.483297768980265e-05
+    },
+    {
+      "attempts": 166812,
+      "solve_process_cpu_seconds": 0.06008300000000011,
+      "solve_wall_seconds": 0.06009141600225121,
+      "verify_wall_seconds": 1.529103610664606e-05
+    },
+    {
+      "attempts": 302443,
+      "solve_process_cpu_seconds": 0.10953100000000004,
+      "solve_wall_seconds": 0.10953741706907749,
+      "verify_wall_seconds": 3.5041943192481995e-05
+    },
+    {
+      "attempts": 172363,
+      "solve_process_cpu_seconds": 0.062219000000000246,
+      "solve_wall_seconds": 0.06223412498366088,
+      "verify_wall_seconds": 3.0667055398225784e-05
+    },
+    {
+      "attempts": 621768,
+      "solve_process_cpu_seconds": 0.22607,
+      "solve_wall_seconds": 0.22607362503185868,
+      "verify_wall_seconds": 3.308302257210016e-05
+    },
+    {
+      "attempts": 326967,
+      "solve_process_cpu_seconds": 0.11910600000000038,
+      "solve_wall_seconds": 0.11912312498316169,
+      "verify_wall_seconds": 3.3082906156778336e-05
+    },
+    {
+      "attempts": 258593,
+      "solve_process_cpu_seconds": 0.09583500000000011,
+      "solve_wall_seconds": 0.09585633303504437,
+      "verify_wall_seconds": 3.6917044781148434e-05
+    },
+    {
+      "attempts": 273042,
+      "solve_process_cpu_seconds": 0.10029000000000021,
+      "solve_wall_seconds": 0.10034204192925245,
+      "verify_wall_seconds": 3.366603050380945e-05
+    },
+    {
+      "attempts": 280345,
+      "solve_process_cpu_seconds": 0.10472599999999987,
+      "solve_wall_seconds": 0.10473179107066244,
+      "verify_wall_seconds": 1.7291982658207417e-05
+    },
+    {
+      "attempts": 353310,
+      "solve_process_cpu_seconds": 0.12909700000000024,
+      "solve_wall_seconds": 0.12910441705025733,
+      "verify_wall_seconds": 2.008303999900818e-05
+    },
+    {
+      "attempts": 111602,
+      "solve_process_cpu_seconds": 0.04086799999999968,
+      "solve_wall_seconds": 0.04087679204531014,
+      "verify_wall_seconds": 1.550000160932541e-05
+    },
+    {
+      "attempts": 32280,
+      "solve_process_cpu_seconds": 0.011765999999999721,
+      "solve_wall_seconds": 0.011766458046622574,
+      "verify_wall_seconds": 5.749985575675964e-06
+    },
+    {
+      "attempts": 246957,
+      "solve_process_cpu_seconds": 0.09070899999999993,
+      "solve_wall_seconds": 0.09070891700685024,
+      "verify_wall_seconds": 1.825008075684309e-05
+    },
+    {
+      "attempts": 56813,
+      "solve_process_cpu_seconds": 0.02088000000000001,
+      "solve_wall_seconds": 0.02088045806158334,
+      "verify_wall_seconds": 6.9160014390945435e-06
+    },
+    {
+      "attempts": 108781,
+      "solve_process_cpu_seconds": 0.039772999999999836,
+      "solve_wall_seconds": 0.039781584055162966,
+      "verify_wall_seconds": 2.166605554521084e-05
+    },
+    {
+      "attempts": 140436,
+      "solve_process_cpu_seconds": 0.052281000000000244,
+      "solve_wall_seconds": 0.05227983300574124,
+      "verify_wall_seconds": 2.0707957446575165e-05
+    },
+    {
+      "attempts": 69565,
+      "solve_process_cpu_seconds": 0.02582799999999974,
+      "solve_wall_seconds": 0.025828000041656196,
+      "verify_wall_seconds": 5.292007699608803e-06
+    },
+    {
+      "attempts": 142004,
+      "solve_process_cpu_seconds": 0.05294700000000008,
+      "solve_wall_seconds": 0.05294787499587983,
+      "verify_wall_seconds": 4.958012141287327e-06
+    },
+    {
+      "attempts": 337706,
+      "solve_process_cpu_seconds": 0.12349200000000016,
+      "solve_wall_seconds": 0.12351420801132917,
+      "verify_wall_seconds": 1.3249926269054413e-05
+    },
+    {
+      "attempts": 290957,
+      "solve_process_cpu_seconds": 0.10791199999999979,
+      "solve_wall_seconds": 0.10791954200249165,
+      "verify_wall_seconds": 1.5249941498041153e-05
+    },
+    {
+      "attempts": 307845,
+      "solve_process_cpu_seconds": 0.11407200000000017,
+      "solve_wall_seconds": 0.11408029205631465,
+      "verify_wall_seconds": 3.5207951441407204e-05
+    },
+    {
+      "attempts": 108600,
+      "solve_process_cpu_seconds": 0.0399440000000002,
+      "solve_wall_seconds": 0.0399439170723781,
+      "verify_wall_seconds": 1.3999990187585354e-05
+    },
+    {
+      "attempts": 90381,
+      "solve_process_cpu_seconds": 0.03337499999999949,
+      "solve_wall_seconds": 0.03337874996941537,
+      "verify_wall_seconds": 2.537504769861698e-05
+    },
+    {
+      "attempts": 1005269,
+      "solve_process_cpu_seconds": 0.3693149999999994,
+      "solve_wall_seconds": 0.36935020808596164,
+      "verify_wall_seconds": 3.2374984584748745e-05
+    },
+    {
+      "attempts": 605034,
+      "solve_process_cpu_seconds": 0.2292809999999994,
+      "solve_wall_seconds": 0.22937566589098424,
+      "verify_wall_seconds": 3.175006713718176e-05
+    },
+    {
+      "attempts": 242525,
+      "solve_process_cpu_seconds": 0.08908900000000042,
+      "solve_wall_seconds": 0.0891028749756515,
+      "verify_wall_seconds": 1.4582998119294643e-05
+    },
+    {
+      "attempts": 149447,
+      "solve_process_cpu_seconds": 0.05419400000000074,
+      "solve_wall_seconds": 0.05420033389236778,
+      "verify_wall_seconds": 1.3750046491622925e-05
+    },
+    {
+      "attempts": 62166,
+      "solve_process_cpu_seconds": 0.022845000000000226,
+      "solve_wall_seconds": 0.02284458396025002,
+      "verify_wall_seconds": 5.792011506855488e-06
+    },
+    {
+      "attempts": 283481,
+      "solve_process_cpu_seconds": 0.10330299999999948,
+      "solve_wall_seconds": 0.10330891702324152,
+      "verify_wall_seconds": 3.3791991882026196e-05
+    },
+    {
+      "attempts": 431735,
+      "solve_process_cpu_seconds": 0.15997400000000006,
+      "solve_wall_seconds": 0.1599984170170501,
+      "verify_wall_seconds": 2.9875081963837147e-05
+    },
+    {
+      "attempts": 290951,
+      "solve_process_cpu_seconds": 0.10725099999999976,
+      "solve_wall_seconds": 0.10725045797880739,
+      "verify_wall_seconds": 6.958958692848682e-06
+    },
+    {
+      "attempts": 677015,
+      "solve_process_cpu_seconds": 0.2472620000000001,
+      "solve_wall_seconds": 0.24727741593960673,
+      "verify_wall_seconds": 2.8999987989664078e-05
+    }
+  ]
+}

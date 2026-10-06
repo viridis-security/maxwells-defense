@@ -7,7 +7,10 @@ SHA-256 proof-of-work defense for AI agents. Verification work is constant in di
 ## Install
 
 ```bash
-pip install "maxwells-defense==0.1.0"
+# Until the 0.2.0 candidate is published, from the repository root:
+pip install -e ./python
+# After publication:
+pip install "maxwells-defense==0.2.0"
 ```
 
 Use an exact release pin during 0.x; update it deliberately after integration testing. The Python wheel carries a `py.typed` marker for the package's inline annotations. See [version pinning and typing](../docs/integration.md#10-version-pinning-and-typing).

@@ -24,7 +24,8 @@ The pitch in one sentence: **require computational effort before a submission re
 ## In thirty seconds
 
 ```bash
-pip install maxwells-defense
+# Release candidate: from the reviewed source checkout, until published
+pip install -e ./python
 ```
 
 ```python
@@ -103,6 +104,8 @@ Each invariant has a named regression test. If any of them stops holding, the li
 | MX-INV-5   | Difficulty oracle is pluggable. The library never hard-codes a policy.    |
 | MX-INV-6   | Middlewares accept a server nonce once before expiry; low-level verification opts in with a nonce store. See [single-use tests](python/tests/test_replay.py) and [deployment requirements](docs/integration.md#single-use--multi-process-state). |
 
+The default nonce store fails closed at 100,000 entries: sufficient accepted traffic can fill it and temporarily reject legitimate callers. Size state for accepted requests per second × TTL, use shared Redis across workers, and combine Maxwell with upstream rate limiting, a suitable TTL and storage-failure monitoring. See [store capacity and fail-closed behavior](docs/integration.md#store-capacity-and-fail-closed-behavior).
+
 ## Why not just Cloudflare Turnstile / hCaptcha / mCaptcha?
 
 Use them. They're great at what they do — keeping human visitors past a single-shot human-vs-bot test. Maxwell's Defense addresses a different surface:
@@ -128,7 +131,7 @@ The hosted implementation, parameters, receipt lifecycle, and account entitlemen
 
 ## Status
 
-`0.1.0` — alpha. The primitive is small (~250 LOC of crypto in core), with [wire-format interop tests](javascript/tests/interop.test.mjs) across two languages. We expect breaking changes in 0.x while we add the federated-difficulty oracle and signed-receipt flow. Pin to a specific version in production.
+`0.2.0` — alpha release candidate; this preparation PR does not tag or publish it. See [CHANGELOG.md](CHANGELOG.md) for upgrade notes. The primitive is small (~250 LOC of crypto in core), with [wire-format interop tests](javascript/tests/interop.test.mjs) across two languages. We expect breaking changes in 0.x while we add the federated-difficulty oracle and signed-receipt flow. Pin to a specific version in production.
 
 ## Testing
 

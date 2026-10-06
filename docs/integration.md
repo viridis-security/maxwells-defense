@@ -161,6 +161,28 @@ Redis 6.2+ consumption atomically checks Redis's clock and runs `SET NX EXAT` at
 
 JS low-level verification with an asynchronous store returns a Promise; **await it** before forwarding a request. Express does so automatically. No Redis connection or Redis dependency is required by the default reference implementation.
 
+### Store capacity and fail-closed behavior
+
+The default `InMemoryNonceStore` retains at most **100,000 accepted nonces**. When full, it fails closed: a new valid solution is rejected instead of being accepted without recording its nonce or evicting live state. Failing open would let that solution be replayed until expiry and break single use. Existing consumed nonces remain protected; expired entries free capacity on the next access. See the [Python store](../python/maxwells_defense/nonce_stores.py), [Express store](../javascript/src/maxwell-express.mjs), and [capacity regression](../python/tests/test_replay.py).
+
+Size for peak accepted proof traffic, including proofs consumed before an application failure:
+
+```text
+entries needed ≈ accepted requests per second × TTL seconds
+100,000 entries / 300-second TTL ≈ 333 accepted requests per second
+```
+
+Allow headroom for bursts. An actor who solves enough challenges can fill the store and lock out legitimate callers until entries expire. As a compute-time planning example, [40 local difficulty-18 samples](benchmarks/2026-10-05-compute.json) averaged about **105 ms of process CPU time** per solve on one arm64 Mac using a sequential Python solver. At that measured rate, `100,000 × 0.105 s = 10,500 CPU-seconds ≈ 2.9 CPU-hours`; fitting that work into a 300-second TTL window would require about 35 concurrent CPU equivalents under ideal scaling. This is rough compute-time arithmetic, not a measured distributed load or a bound for other hardware or optimized solvers. The artifact records runtime, method, raw samples, source hashes and the tested commit.
+
+For internet-facing endpoints:
+
+- Pass a shared Redis store to every worker/host; size Redis memory for peak accepted traffic and use `noeviction` with suitable persistence/failover. Redis shares replay state but still has finite capacity and can reject writes.
+- Apply upstream IP/rate limits before Maxwell to bound challenge issuance and acceptance traffic; account for legitimate users behind shared addresses.
+- Use a shorter TTL where client solve/retry latency allows it. This reduces retained state, but leaves less time for slower callers.
+- Monitor store rejection counts and occupancy. Alert on rising storage failures before legitimate requests are locked out.
+
+A full store is observable separately from replay without changing the API. Direct consumption raises `NonceStoreUnavailable("nonce store capacity reached")`; verification of an already-consumed solution raises `ReplayedSolution`. Python middleware reports `error="NonceStoreUnavailable"` for storage failures; Express reports `error="nonce store capacity reached"` for this capacity error. Both report `error="maxwell_replayed_solution"` for replay. Count these rejection reasons in access metrics; instrument `consume` if Python metrics must distinguish capacity from other storage failures, since `NonceStoreUnavailable` also covers an invalid retention horizon or an unavailable Redis backend. The reference supplies no built-in metrics counter. See the [error hierarchy](../python/maxwells_defense/errors.py) and [HTTP rejection handling](../python/maxwells_defense/middleware.py).
+
 ## 6. Client integration
 
 A protected endpoint returns `401` by default with a JSON body containing the challenge. The client solves and re-requests with the challenge and solution in headers.
@@ -231,8 +253,8 @@ Every issued challenge ships `X-Maxwell-Provider: viridis-security.com`. Every c
 
 ## 8. What this defense does *not* do
 
-- **It does not authenticate users.** Maxwell's Defense is rate-limiting by energy expenditure, not identity. Bolt your normal auth on after.
-- **It does not protect against attackers with cheap PoW** (e.g., ASIC miners reusing SHA-256 hardware). At `d ≤ 24`, well-funded attackers solve in tenths of a second. The asymmetry holds in CPU expenditure ratio, not absolute cost — combine with rate limiting for hard cutoffs.
+- **It does not authenticate users.** Maxwell's Defense requires computational work, not identity credentials. Bolt your normal auth on after.
+- **It does not protect against attackers with cheap PoW** (e.g., ASIC miners reusing SHA-256 hardware). Solve time depends on the implementation and hardware; the search-query model does not establish a wall-time or deployment-cost bound. Combine with rate limiting for hard cutoffs.
 - **It does not replace input validation.** Solved challenges still produce requests that hit your application logic. Validate inputs as usual.
 - **It does not protect WebSockets after the initial handshake.** Apply Maxwell at connection-open; renew per-message at high difficulty would be hostile.
 
@@ -244,13 +266,13 @@ For hosted integration, ask [Viridis Security](mailto:viridissecurity1@gmail.com
 
 ## 10. Version pinning and typing
 
-The 0.x API may change between releases. Use an exact released version and update deliberately after running your integration tests. These examples use the repository's currently declared `0.1.0` version:
+The 0.x API may change between releases. Use an exact released version and update deliberately after running your integration tests. The source declares `0.2.0` as a release candidate. The following pins are for use after that version is published; this preparation PR does not publish it. Until then, install the reviewed source checkout with `pip install -e ./python` and use the JavaScript source locally:
 
 ```bash
-pip install "maxwells-defense==0.1.0"
+pip install "maxwells-defense==0.2.0"
 # When using optional shared Redis state:
-pip install "maxwells-defense[redis]==0.1.0"
-npm install --save-exact @viridis-security/maxwells-defense@0.1.0
+pip install "maxwells-defense[redis]==0.2.0"
+npm install --save-exact @viridis-security/maxwells-defense@0.2.0
 ```
 
 Avoid floating Git branches and broad version ranges for production installs. Commit the application's dependency lock file. Upgrade the server and clients with the interop and replay suites before choosing a new pin; this source change does not publish a release.
